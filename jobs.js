@@ -13,8 +13,8 @@
 const store = require('./store');
 const { toPackage } = require('./normalize');
 const ai = require('./ai');
-const facebook = require('./sources/facebook');
-const instagram = require('./sources/instagram');
+const facebook = require('./source-facebook');
+const instagram = require('./source-instagram');
 
 async function extractRaw({ source, kind, from, until, token, igUserId, fetchImpl }) {
   if (source === 'facebook') {

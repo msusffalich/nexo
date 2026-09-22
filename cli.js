@@ -19,7 +19,7 @@ const { parseCommand } = require('./intent');
 const jobs = require('./jobs');
 const { toPackage } = require('./normalize');
 const ai = require('./ai');
-const legado = require('./adapters/legado');
+const legado = require('./adapter-legado');
 const { parseExport } = require('./whatsapp-export');
 
 function arg(name) {

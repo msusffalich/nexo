@@ -30,8 +30,8 @@ WhatsApp: el bot actual sigue capturando foto+relato como siempre. El **historia
 
 **1. Crea un repo NUEVO en GitHub**
 - Nombre sugerido: `nexo` (público o privado, como prefieras).
-- Sube estos archivos **planos en la raíz** (sin carpetas extra, igual que el puente actual):
-  `package.json`, `index.js`, `config.js`, `store.js`, `intent.js`, `jobs.js`, `normalize.js`, `ai.js`, `cli.js`, `whatsapp-export.js`, `render.yaml`, `.env.example`, `.gitignore`, `README.md`, y las carpetas `sources/`, `adapters/`, `test/`, `media/`, `assets/` (con `nexo-logo.png`, `nexo-icon.png` y `favicon.ico`).
+- Sube estos archivos **planos en la raíz** (todo el código runtime va 100% en la raíz, SIN subcarpetas de código: las carpetas no sobreviven el upload web de GitHub, y eso fue lo que tumbó el deploy de la v1.1.0):
+  `package.json`, `index.js`, `config.js`, `store.js`, `intent.js`, `jobs.js`, `normalize.js`, `ai.js`, `jev.js`, `cli.js`, `whatsapp-export.js`, `source-facebook.js`, `source-instagram.js`, `adapter-legado.js`, `render.yaml`, `.env.example`, `.gitignore`, `README.md`, y las carpetas no-críticas `test/`, `media/`, `assets/` (con `nexo-logo.png`, `nexo-icon.png` y `favicon.ico`).
 - No subas `node_modules/` ni ningún `.env`.
 
 **2. Crea un Web Service NUEVO en Render (no toques el actual)**
@@ -112,6 +112,11 @@ NEXO integra **JEV** (`jev-latest`) como cerebro de decisiones rápidas. Importa
 ## Pruebas
 
 `npm test` → 26 pruebas (unitarias + E2E en DRY_RUN con APIs simuladas). Sin credenciales reales.
+
+## Versiones
+
+- **v1.1.1** — Todo el código runtime plano en la raíz (`source-facebook.js`, `source-instagram.js`, `adapter-legado.js`; se eliminaron las carpetas `sources/` y `adapters/`). Motivo: las subcarpetas no sobreviven el upload web de GitHub y tumbaban el deploy en Render (`Cannot find module './sources/facebook'`).
+- **v1.1.0** — Integración JEV (TypeSafe AI) como motor de decisiones.
 
 ---
 
