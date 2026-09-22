@@ -15,6 +15,12 @@ function cfg() {
     instagramUserId: process.env.INSTAGRAM_USER_ID || '',
     // IA (opcional: sin esto se usan heurísticas locales)
     openaiKey: process.env.OPENAI_API_KEY || '',
+    // JEV / TypeSafe AI (opcional: decisiones rápidas; sin key, la IA usa heurísticas)
+    jev: {
+      key: process.env.TYPESAFE_API_KEY || process.env.JEV_API_KEY || '',
+      model: process.env.JEV_MODEL || 'jev-latest',
+      baseUrl: (process.env.JEV_BASE_URL || 'https://api.typesafe.ai').replace(/\/+$/, ''),
+    },
     // Adaptador Legado Vivo (opcional: sin esto la entrega queda pendiente)
     legadoUrl: (process.env.LEGADO_VIVO_URL || '').replace(/\/+$/, ''),
     legadoKey: process.env.BRIDGE_API_KEY || '',

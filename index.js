@@ -31,7 +31,7 @@ const ai = require('./ai');
 const legado = require('./adapters/legado');
 const { parseExport } = require('./whatsapp-export');
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 
 fastify.get('/', async () => {
   const c = cfg();
@@ -42,7 +42,7 @@ fastify.get('/', async () => {
     almacen: store.backend(),
     dry_run: c.dryRun,
     fuentes_configuradas: fuentesActivas(c),
-    ia: c.openaiKey ? 'openai' : 'heuristica-local',
+    ia: ['heuristica-local'].concat(c.openaiKey ? ['openai'] : [], c.jev.key ? ['jev-decisiones'] : []).join('+'),
     adaptador_legado_vivo: legado.bridgeEnabled(c),
     nota: 'No modifica el Asistente Puente en producción.',
   };
@@ -150,7 +150,7 @@ fastify.post('/api/import/whatsapp-export', async (req, reply) => {
   for (const raw of items) {
     const pkg = toPackage(raw, null, null);
     if (await store.seenDedupeKey(pkg.metadata.dedupe_key)) continue;
-    await ai.enrich(pkg, c.openaiKey);
+    await ai.enrich(pkg, c.openaiKey, undefined, { jev: c.jev });
     pkg.target_apps = ['legado-vivo', 'momentos'];
     await store.savePackage(pkg);
     nuevos += 1;

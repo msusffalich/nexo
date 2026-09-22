@@ -5,8 +5,13 @@
  *
  * Funciona SIEMPRE con heurísticas locales (sin costo, sin red).
  * Si existe OPENAI_API_KEY, mejora el resumen con un modelo de lenguaje.
- * Nunca falla la extracción por un fallo de IA: ante error, usa heurística.
+ * Si existe TYPESAFE_API_KEY (o JEV_API_KEY), JEV decide rápido: categoría con
+ * confianza, puntaje de relevancia y puertas binarias (duplicado, entrega segura).
+ * JEV no genera texto: solo decisiones tipadas. Nunca falla la extracción por
+ * un fallo de IA: ante error, usa heurística.
  */
+
+const jev = require('./jev');
 
 const STOPWORDS = new Set(
   'de la el en y a los del se las por un para con no una su al lo como mas pero sus le ya o este esta si porque cuando muy sin sobre tambien me hasta hay donde quien desde todo nos durante todos uno les ni contra otros ese eso ante ellos esto mi antes algunos que nos'.split(' ')
@@ -96,13 +101,38 @@ async function summarize(text, apiKey, fetchImpl) {
   return heuristicSummary(text);
 }
 
-/** Enriquece un paquete con categoría, etiquetas y resumen. */
-async function enrich(pkg, apiKey, fetchImpl) {
+/** Enriquece un paquete con categoría, etiquetas y resumen.
+ * opts = { jev: {key, model, baseUrl} } — si hay key, JEV agrega decisiones.
+ * JEV nunca bloquea: ante fallo, el paquete queda con heurísticas locales. */
+async function enrich(pkg, apiKey, fetchImpl, opts) {
   const text = pkg.text || '';
   pkg.metadata = pkg.metadata || {};
   pkg.metadata.category = classify(text);
   pkg.metadata.tags = tag(text);
   pkg.metadata.summary = await summarize(text, apiKey, fetchImpl);
+
+  const jcfg = jev.cfgFromAppConfig({ jev: (opts && opts.jev) || {} });
+  if (jcfg.key) {
+    try {
+      const d = await jev.decide(pkg, jcfg, fetchImpl);
+      if (d.ok) {
+        const dec = d.decisions;
+        pkg.metadata.jev = dec;
+        // Categoría JEV reemplaza la heurística solo con alta confianza.
+        if (dec.categoria_confianza >= 0.75 && dec.categoria !== 'otro') {
+          pkg.metadata.category = dec.categoria;
+        }
+        // Confianza baja o puertas en riesgo -> revisión humana, no automatizar.
+        const razones = [];
+        if (dec.categoria_confianza < 0.6) razones.push('categoria_insegura');
+        if (dec.posible_duplicado_prob > 0.6) razones.push('posible_duplicado');
+        if (dec.entrega_segura_prob < 0.5) razones.push('revisar_entrega');
+        if (razones.length) pkg.metadata.revision_humana = razones;
+      }
+    } catch {
+      // JEV nunca bloquea la extracción
+    }
+  }
   return pkg;
 }
 

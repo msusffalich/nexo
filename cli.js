@@ -96,7 +96,7 @@ async function main() {
     for (const raw of items) {
       const pkg = toPackage(raw, null, null);
       if (await store.seenDedupeKey(pkg.metadata.dedupe_key)) continue;
-      await ai.enrich(pkg, c.openaiKey);
+      await ai.enrich(pkg, c.openaiKey, undefined, { jev: c.jev });
       pkg.target_apps = ['legado-vivo', 'momentos'];
       await store.savePackage(pkg);
       nuevos += 1;

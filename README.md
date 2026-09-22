@@ -12,7 +12,7 @@
 
 1. **Extrae** — Lee tu contenido propio vía Graph API oficial de Meta (Facebook e Instagram).
 2. **Normaliza** — Convierte cada post/foto en un **paquete estándar**: `{package_id, source, author, created_at, text, media[], metadata}`.
-3. **Enriquece con IA** — Clasifica por tema (familia, viaje, comida…), resume, etiqueta y **deduplica** (nunca guarda dos veces lo mismo).
+3. **Enriquece con IA** — Clasifica por tema (familia, viaje, comida…), resume, etiqueta y **deduplica** (nunca guarda dos veces lo mismo). Con la key configurada, **JEV (TypeSafe AI)** agrega decisiones rápidas: categoría con confianza, puntaje de relevancia y puertas binarias (¿duplicado? ¿entrega segura?).
 4. **Entrega** — Guarda los paquetes para que los uses desde el chat con Muse, por API, o los envía a Legado Vivo como borrador.
 
 **Comandos en lenguaje natural** (mismo estilo del puente actual):
@@ -55,6 +55,7 @@ WhatsApp: el bot actual sigue capturando foto+relato como siempre. El **historia
 
 **6. Variables opcionales**
 - `OPENAI_API_KEY` — mejora los resúmenes con IA; sin ella usa heurísticas locales gratuitas.
+- `TYPESAFE_API_KEY` (o `JEV_API_KEY`) — activa las **decisiones JEV** (ver sección abajo). Opcionales: `JEV_MODEL` (default `jev-latest`), `JEV_BASE_URL` (default `https://api.typesafe.ai`).
 - `LEGADO_VIVO_URL`, `BRIDGE_API_KEY`, `LEGADO_FAMILY_ID` — para enviar paquetes a Legado Vivo (puedes reusar los mismos valores del puente actual).
 - `DRY_RUN=true` — modo prueba sin llamadas reales.
 
@@ -63,6 +64,20 @@ WhatsApp: el bot actual sigue capturando foto+relato como siempre. El **historia
 - `POST /api/command` con `{"text": "tráeme mis fotos de facebook de esta semana"}` → crea el trabajo y devuelve `stats`.
 - `GET /api/packages` → lista los paquetes extraídos.
 - Desde el chat con Muse: `node cli.js extraer "tráeme mis fotos de instagram de marzo"`.
+
+## JEV — decisiones con IA (TypeSafe AI)
+
+NEXO integra **JEV** (`jev-latest`) como cerebro de decisiones rápidas. Importante:
+
+- **JEV no genera texto.** No escribe resúmenes ni etiquetas; eso lo siguen haciendo las heurísticas locales y OpenAI. JEV solo toma **decisiones tipadas** sobre cada paquete:
+  - `choice` → categoría temática (familia, viaje, comida…) **con confianza**. Si la confianza es ≥ 0.75, reemplaza la categoría heurística.
+  - `score` → puntaje de relevancia del contenido (0–100).
+  - `noul` → puertas binarias: **¿duplicado probable?** y **¿entrega segura automática?**
+- **Confianza baja → revisión humana, no automatización.** Si la categoría es insegura (< 0.6), hay posible duplicado (> 0.6) o la entrega no es segura (< 0.5), el paquete queda marcado en `metadata.revision_humana` con el motivo.
+- **JEV nunca bloquea la extracción.** Sin key, o si el servicio falla (401/422/429/529, timeout), el paquete conserva sus heurísticas locales y sigue su curso normal.
+- Los resultados viven en `metadata.jev` de cada paquete (proveedor, modelo, categoría, confianza, relevancia, probabilidades).
+
+**Activarlo:** crea tu API key en [console.typesafe.ai](https://console.typesafe.ai) (o vía el gateway [defapi.org](https://defapi.org)) y pégala en Render como `TYPESAFE_API_KEY` (acepta `JEV_API_KEY` como alias). **Nunca la pegues en código ni en chats.** Sin esta key, NEXO funciona igual con heurísticas.
 
 ## API
 
@@ -96,7 +111,7 @@ WhatsApp: el bot actual sigue capturando foto+relato como siempre. El **historia
 
 ## Pruebas
 
-`npm test` → 15 pruebas (unitarias + E2E en DRY_RUN con APIs simuladas). Sin credenciales reales.
+`npm test` → 26 pruebas (unitarias + E2E en DRY_RUN con APIs simuladas). Sin credenciales reales.
 
 ---
 
@@ -104,4 +119,4 @@ WhatsApp: el bot actual sigue capturando foto+relato como siempre. El **historia
 
 **NEXO** is a content-extraction hub: it pulls photos, posts and videos from your own **Facebook** and **Instagram** accounts via Meta's official Graph API, normalizes each item into a standard **package** (`package_id, source, author, created_at, text, media[], metadata`), enriches it with AI (topic classification, summary, tags, deduplication), and makes it available to your other apps (Momentos, Prisma Editorial, Legado Vivo) via chat, REST API, or direct delivery to Legado Vivo drafts.
 
-It does **not** touch the production Asistente Puente (separate repo, separate Render service, Meta webhook unchanged). WhatsApp personal chat history is **phase 2** (manual chat export; parser included). Setup: create a new GitHub repo, upload the flat files, create a **new** Render web service, set env vars (`DATABASE_URL`, `FACEBOOK_USER_TOKEN`, optional `INSTAGRAM_USER_ID`, `OPENAI_API_KEY`, `LEGADO_*`), then test with `GET /` and `POST /api/command`. `npm test` runs 15 offline tests.
+It does **not** touch the production Asistente Puente (separate repo, separate Render service, Meta webhook unchanged). WhatsApp personal chat history is **phase 2** (manual chat export; parser included). With `TYPESAFE_API_KEY` set, **JEV (TypeSafe AI)** adds fast typed decisions per package (category with confidence, relevance score, duplicate/safe-delivery gates) — it does not generate text; low confidence flags the package for human review instead of automating. Setup: create a new GitHub repo, upload the flat files, create a **new** Render web service, set env vars (`DATABASE_URL`, `FACEBOOK_USER_TOKEN`, optional `INSTAGRAM_USER_ID`, `OPENAI_API_KEY`, `TYPESAFE_API_KEY`, `LEGADO_*`), then test with `GET /` and `POST /api/command`. `npm test` runs 26 offline tests.

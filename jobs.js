@@ -56,7 +56,8 @@ async function runJob(jobId, cfg, hooks = {}) {
         const pkg = toPackage(raw, jobId, params.author);
         const seen = await store.seenDedupeKey(pkg.metadata.dedupe_key);
         if (seen) { stats.duplicados += 1; continue; }
-        await ai.enrich(pkg, hooks.openaiKey !== undefined ? hooks.openaiKey : cfg.openaiKey, hooks.fetchImpl);
+        await ai.enrich(pkg, hooks.openaiKey !== undefined ? hooks.openaiKey : cfg.openaiKey, hooks.fetchImpl,
+          { jev: hooks.jev !== undefined ? hooks.jev : cfg.jev });
         pkg.target_apps = params.target_apps || [];
         await store.savePackage(pkg);
         stats.nuevos += 1;
