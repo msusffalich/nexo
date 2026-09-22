@@ -1,0 +1,27 @@
+# Blueprint opcional para Render: crea un Web Service NUEVO.
+# NO toca el servicio actual "asistente-puente".
+# En el dashboard de Render: New + → Blueprint → conecta el repo nuevo nexo.
+services:
+  - type: web
+    name: nexo
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DRY_RUN
+        value: false
+      - key: DATABASE_URL
+        sync: false # pégala manual (nueva base en Neon, separada del puente actual)
+      - key: FACEBOOK_USER_TOKEN
+        sync: false
+      - key: INSTAGRAM_USER_ID
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: LEGADO_VIVO_URL
+        sync: false
+      - key: BRIDGE_API_KEY
+        sync: false
+      - key: LEGADO_FAMILY_ID
+        sync: false

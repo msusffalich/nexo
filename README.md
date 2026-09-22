@@ -1,0 +1,107 @@
+# NEXO
+
+![NEXO — Asistente Puente](assets/nexo-logo.png)
+
+**Hub de extracción de contenidos** — evolución del Asistente Puente. Extrae fotos, posts y videos de tus cuentas de **Facebook** e **Instagram**, los normaliza en paquetes estándar y los deja listos para tus otras apps (Momentos, Prisma Editorial, Legado Vivo).
+
+> ⚠️ **El Asistente Puente actual NO se toca.** Sigue en producción con su repo, su servicio Render y su webhook de Meta intactos. NEXO es un servicio **nuevo y separado**.
+
+---
+
+## Cómo funciona
+
+1. **Extrae** — Lee tu contenido propio vía Graph API oficial de Meta (Facebook e Instagram).
+2. **Normaliza** — Convierte cada post/foto en un **paquete estándar**: `{package_id, source, author, created_at, text, media[], metadata}`.
+3. **Enriquece con IA** — Clasifica por tema (familia, viaje, comida…), resume, etiqueta y **deduplica** (nunca guarda dos veces lo mismo).
+4. **Entrega** — Guarda los paquetes para que los uses desde el chat con Muse, por API, o los envía a Legado Vivo como borrador.
+
+**Comandos en lenguaje natural** (mismo estilo del puente actual):
+
+| Ejemplo | Hace |
+|---|---|
+| `tráeme mis fotos de instagram de marzo` | Extrae fotos de IG de marzo |
+| `extrae mis posts de facebook del 1 al 15 de enero de 2026` | Extrae posts de FB en ese rango |
+| `jala mis videos de instagram de esta semana` | Extrae videos recientes |
+| `cómo van mis extracciones` | Muestra el estado de los trabajos |
+
+WhatsApp: el bot actual sigue capturando foto+relato como siempre. El **historial de chats personales** llega en **fase 2** (exportación manual del chat → `importar-whatsapp`).
+
+## Puesta en marcha (pasos para Miguel)
+
+**1. Crea un repo NUEVO en GitHub**
+- Nombre sugerido: `nexo` (público o privado, como prefieras).
+- Sube estos archivos **planos en la raíz** (sin carpetas extra, igual que el puente actual):
+  `package.json`, `index.js`, `config.js`, `store.js`, `intent.js`, `jobs.js`, `normalize.js`, `ai.js`, `cli.js`, `whatsapp-export.js`, `render.yaml`, `.env.example`, `.gitignore`, `README.md`, y las carpetas `sources/`, `adapters/`, `test/`, `media/`, `assets/` (con `nexo-logo.png`, `nexo-icon.png` y `favicon.ico`).
+- No subas `node_modules/` ni ningún `.env`.
+
+**2. Crea un Web Service NUEVO en Render (no toques el actual)**
+- En el dashboard: **New → Web Service** → conecta el repo `nexo`.
+- Build Command: `npm install` · Start Command: `npm start` · Plan Free.
+- (Opcional) En vez de manual, usa **New → Blueprint** y apunta a este repo: `render.yaml` lo configura solo.
+
+**3. Base de datos nueva en Neon**
+- Crea una base **nueva** (separada de la del Asistente Puente) y pega su connection string en la variable `DATABASE_URL` del servicio nuevo.
+- Sin `DATABASE_URL` el servicio igual arranca, pero los datos no sobreviven reinicios.
+
+**4. Token de Facebook**
+- Ve a [Graph API Explorer](https://developers.facebook.com/tools/explorer/) con tu cuenta.
+- Elige tu app, pide permisos `user_posts` y `user_photos`, genera el token y luego extiéndelo a larga duración (el Explorer tiene el botón).
+- Pégalo en `FACEBOOK_USER_TOKEN` en Render. **Nunca lo pegues en código ni en chats.**
+
+**5. Instagram (solo si tu cuenta es de empresa/creador)**
+- La API oficial exige cuenta **empresa o creador** vinculada a una página de Facebook. Si `@msusffalich` es personal, conviértela primero (Instagram → Configuración → Tipo de cuenta).
+- Obtén el ID numérico: en Graph API Explorer, `GET /me/accounts?fields=instagram_business_account`.
+- Pégalo en `INSTAGRAM_USER_ID`. Sin esto, la fuente Instagram queda inactiva (Facebook sigue funcionando).
+
+**6. Variables opcionales**
+- `OPENAI_API_KEY` — mejora los resúmenes con IA; sin ella usa heurísticas locales gratuitas.
+- `LEGADO_VIVO_URL`, `BRIDGE_API_KEY`, `LEGADO_FAMILY_ID` — para enviar paquetes a Legado Vivo (puedes reusar los mismos valores del puente actual).
+- `DRY_RUN=true` — modo prueba sin llamadas reales.
+
+**7. Qué probar**
+- Abre `https://tu-servicio.onrender.com/` → debe decir `"servicio": "nexo"`.
+- `POST /api/command` con `{"text": "tráeme mis fotos de facebook de esta semana"}` → crea el trabajo y devuelve `stats`.
+- `GET /api/packages` → lista los paquetes extraídos.
+- Desde el chat con Muse: `node cli.js extraer "tráeme mis fotos de instagram de marzo"`.
+
+## API
+
+| Método | Ruta | Para qué |
+|---|---|---|
+| GET | `/` | Estado del servicio |
+| GET | `/api/ayuda` | Ejemplos de comandos |
+| POST | `/api/command` `{text}` | Comando en lenguaje natural |
+| POST | `/api/jobs` `{source,kind,from,to,target_apps}` | Trabajo directo |
+| GET | `/api/jobs` · `/api/jobs/:id` | Ver trabajos |
+| GET | `/api/packages` · `/api/packages/:id` | Ver paquetes |
+| POST | `/api/packages/:id/deliver` `{app:"legado-vivo"}` | Enviar a Legado Vivo |
+| POST | `/api/import/whatsapp-export` `{text,chatName}` | Fase 2: importar exportación de WhatsApp |
+
+## Adaptadores por app consumidora
+
+- **Legado Vivo** — `POST /api/packages/:id/deliver` envía el paquete como borrador a `POST {LEGADO_VIVO_URL}/api/bridge/drafts` (mismo contrato del puente actual, `draftId: nexo-<package_id>`).
+- **Momentos / Prisma Editorial** — por ahora vía el chat con Muse: pide los paquetes (`cli.js paquetes` o `GET /api/packages`) y aliméntalos a la app que corresponda.
+
+## Fase 2 (no incluida en este despliegue)
+
+- Importación del historial de chats personales de WhatsApp vía archivo de exportación (el parser `whatsapp-export.js` ya está incluido y probado; el endpoint `/api/import/whatsapp-export` lo procesa).
+- Extracciones programadas automáticas (cron externo que llame a `/api/command`).
+
+## Límites honestos
+
+- **WhatsApp no tiene API oficial para leer tus chats personales.** Por eso la fase 1 no los extrae; la vía es la exportación manual del chat.
+- **Facebook/Instagram: solo tus propias cuentas** y lo que la API oficial permite. Instagram exige cuenta empresa/creador.
+- La IA con heurísticas locales clasifica bien temas comunes; los resúmenes mejoran con `OPENAI_API_KEY`.
+- Los medios se referencian por URL; la descarga local ocurre solo al entregar a Legado Vivo.
+
+## Pruebas
+
+`npm test` → 15 pruebas (unitarias + E2E en DRY_RUN con APIs simuladas). Sin credenciales reales.
+
+---
+
+## English summary
+
+**NEXO** is a content-extraction hub: it pulls photos, posts and videos from your own **Facebook** and **Instagram** accounts via Meta's official Graph API, normalizes each item into a standard **package** (`package_id, source, author, created_at, text, media[], metadata`), enriches it with AI (topic classification, summary, tags, deduplication), and makes it available to your other apps (Momentos, Prisma Editorial, Legado Vivo) via chat, REST API, or direct delivery to Legado Vivo drafts.
+
+It does **not** touch the production Asistente Puente (separate repo, separate Render service, Meta webhook unchanged). WhatsApp personal chat history is **phase 2** (manual chat export; parser included). Setup: create a new GitHub repo, upload the flat files, create a **new** Render web service, set env vars (`DATABASE_URL`, `FACEBOOK_USER_TOKEN`, optional `INSTAGRAM_USER_ID`, `OPENAI_API_KEY`, `LEGADO_*`), then test with `GET /` and `POST /api/command`. `npm test` runs 15 offline tests.
