@@ -19,6 +19,7 @@
  *   POST /api/packages/:id/deliver {app}  entregar a app consumidora
  *   POST /api/import/whatsapp-export {text, chatName}  (FASE 2)
  *   GET  /api/ayuda                     ejemplos de comandos
+ *   GET  /privacidad                    política de privacidad (requerida por Meta)
  */
 
 const fastify = require('fastify')({ logger: true });
@@ -31,7 +32,39 @@ const ai = require('./ai');
 const legado = require('./adapter-legado');
 const { parseExport } = require('./whatsapp-export');
 
-const VERSION = '1.1.1';
+const VERSION = '1.1.2';
+
+const PRIVACIDAD_HTML = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Política de privacidad — NEXO</title>
+<style>body{font-family:system-ui,-apple-system,sans-serif;max-width:720px;margin:40px auto;padding:0 20px;line-height:1.6;color:#222}h1{font-size:1.6em}</style>
+</head>
+<body>
+<h1>Política de privacidad — NEXO</h1>
+<p><strong>Última actualización:</strong> 23 de septiembre de 2026.</p>
+<p><strong>NEXO</strong> es un hub personal de extracción de contenidos. Su único usuario es su propio titular: extrae fotos, publicaciones y videos de <strong>sus propias cuentas</strong> de Facebook e Instagram (mediante tokens de acceso que él mismo genera y autoriza en Meta) y de exportaciones de chats de WhatsApp que él mismo sube manualmente.</p>
+<h2>Datos que se manejan</h2>
+<ul>
+<li>Contenido de las cuentas propias de Facebook e Instagram (texto, fotos, videos, fechas) obtenido exclusivamente vía la API oficial de Meta con autorización del titular.</li>
+<li>Archivos de exportación de WhatsApp subidos manualmente por el titular.</li>
+</ul>
+<h2>Finalidad</h2>
+<p>Normalizar ese contenido en paquetes estándar y entregarlo a las aplicaciones personales del titular (Momentos, Prisma Editorial, Legado Vivo). No existe ningún otro uso.</p>
+<h2>Almacenamiento y compartición</h2>
+<p>Los datos se almacenan en la base de datos privada del titular (PostgreSQL) dentro de su propio servicio en la nube. <strong>No se comparten, venden ni ceden datos a terceros.</strong> No hay analítica ni rastreo de terceros.</p>
+<h2>Eliminación</h2>
+<p>El titular puede eliminar sus datos en cualquier momento escribiendo a <a href="mailto:msusffalich@hotmail.com">msusffalich@hotmail.com</a>.</p>
+<h2>Contacto</h2>
+<p>Miguel Susffalich Tomasevich — <a href="mailto:msusffalich@hotmail.com">msusffalich@hotmail.com</a></p>
+</body>
+</html>`;
+
+fastify.get('/privacidad', async (req, reply) => {
+  reply.type('text/html; charset=utf-8').send(PRIVACIDAD_HTML);
+});
 
 fastify.get('/', async () => {
   const c = cfg();

@@ -84,6 +84,7 @@ NEXO integra **JEV** (`jev-latest`) como cerebro de decisiones rápidas. Importa
 | Método | Ruta | Para qué |
 |---|---|---|
 | GET | `/` | Estado del servicio |
+| GET | `/privacidad` | Política de privacidad (página pública requerida por Meta) |
 | GET | `/api/ayuda` | Ejemplos de comandos |
 | POST | `/api/command` `{text}` | Comando en lenguaje natural |
 | POST | `/api/jobs` `{source,kind,from,to,target_apps}` | Trabajo directo |
@@ -115,6 +116,7 @@ NEXO integra **JEV** (`jev-latest`) como cerebro de decisiones rápidas. Importa
 
 ## Versiones
 
+- **v1.1.2** — Nueva ruta pública `GET /privacidad` con la política de privacidad (página exigida por Meta para habilitar el inicio de sesión en la app NEXO de Facebook). Sin otros cambios funcionales.
 - **v1.1.1** — Todo el código runtime plano en la raíz (`source-facebook.js`, `source-instagram.js`, `adapter-legado.js`; se eliminaron las carpetas `sources/` y `adapters/`). Motivo: las subcarpetas no sobreviven el upload web de GitHub y tumbaban el deploy en Render (`Cannot find module './sources/facebook'`).
 - **v1.1.0** — Integración JEV (TypeSafe AI) como motor de decisiones.
 
