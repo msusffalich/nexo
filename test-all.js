@@ -1,14 +1,14 @@
 'use strict';
 
 /**
- * NEXO — suite completa v1.4.0 (unitarias + E2E).
+ * NEXO — suite completa v1.5.0 (unitarias + E2E).
  *
  *   node test-all.js                -> todo en LOCAL (recomendado, sin red real)
  *   TARGET=prod node test-all.js    -> verificación contra producción
  *   WA_E2E=1 TARGET=prod WA_TEST_APP_SECRET=... node test-all.js
  *                                   -> además corre el E2E firmado contra prod
  *                                      (crea un álbum de prueba en el NEXO de
- *                                      producción; requiere v1.4.0 desplegado)
+ *                                      producción; requiere v1.5.0 desplegado)
  *
  * En local: DRY_RUN=true, almacén JSON temporal, fastify.inject (sin puertos
  * ni red). No usa credenciales reales. Limpia data.json al terminar.
@@ -78,7 +78,7 @@ const T0 = Math.floor(Date.UTC(2026, 8, 24, 20, 0, 0) / 1000);
 // ============================ MODO LOCAL ============================
 
 async function runLocal() {
-  console.log('NEXO v1.4.0 — suite local (DRY_RUN, sin red)');
+  console.log('NEXO v1.5.0 — suite local (DRY_RUN, sin red)');
   try { fs.copyFileSync(DATA_FILE, DATA_BACKUP); } catch { /* sin datos previos */ }
   try { fs.unlinkSync(DATA_FILE); } catch { /* limpio */ }
 
@@ -226,10 +226,10 @@ async function runLocal() {
   });
 
   console.log('\n[e2e] verificación y firma del webhook');
-  await ok('GET / responde versión 1.4.0', async () => {
+  await ok('GET / responde versión 1.5.0', async () => {
     const r = await fastify.inject({ method: 'GET', url: '/' });
     const j = r.json();
-    assert.equal(j.version, '1.4.0');
+    assert.equal(j.version, '1.5.0');
     assert.ok(j.webhook_whatsapp.includes('inactivo')); // sin WHATSAPP_TOKEN en pruebas
   });
   await ok('GET /webhook verifica con token correcto', async () => {
@@ -462,6 +462,113 @@ async function runLocal() {
     assert.ok(!JSON.stringify(body).includes('NUEVO_TOKEN_60_DIAS'));
   });
 
+  console.log('\n[unit+e2e] embeddings + búsqueda semántica + Q&A v1.5.0');
+  const embeddings = require('./embeddings');
+
+  // fetch simulado de OpenAI: vectores deterministas por palabra clave,
+  // para probar el ranking de verdad (playa=[1,0,0], montaña=[0,1,0]).
+  const embVec = (text) => {
+    const t = String(text).toLowerCase();
+    if (t.includes('playa')) return [1, 0, 0];
+    if (t.includes('montaña')) return [0, 1, 0];
+    return [0, 0, 1];
+  };
+  const fakeOpenAI = async (url, opts) => {
+    const body = JSON.parse((opts && opts.body) || '{}');
+    if (url.includes('/v1/embeddings')) {
+      return { ok: true, json: async () => ({ data: (body.input || []).map((tx, i) => ({ index: i, embedding: embVec(tx) })) }) };
+    }
+    if (url.includes('/v1/chat/completions')) {
+      return { ok: true, json: async () => ({ choices: [{ message: { content: 'Fuimos a la playa en familia [1].' } }] }) };
+    }
+    throw new Error(`URL inesperada: ${url}`);
+  };
+  embeddings.__setFetchForTests(fakeOpenAI);
+
+  await ok('embedTexts devuelve vectores con fetch simulado', async () => {
+    const r = await embeddings.embedTexts({ texts: ['hola', 'playa'], apiKey: 'K', model: 'text-embedding-3-small' });
+    assert.equal(r.ok, true);
+    assert.equal(r.vectors.length, 2);
+    assert.deepEqual(r.vectors[1], [1, 0, 0]);
+  });
+  await ok('embedTexts sin apiKey reporta sin_api_key', async () => {
+    const r = await embeddings.embedTexts({ texts: ['hola'] });
+    assert.equal(r.ok, false);
+    assert.equal(r.reason, 'sin_api_key');
+  });
+
+  const mkPkg = (id, text, source) => ({
+    package_id: id, source, created_at: '2026-09-01T12:00:00Z', text, media: [],
+    metadata: { source_id: id, dedupe_key: `dk_${id}`, permalink: `https://fb.test/${id}` },
+    target_apps: [], status: 'listo',
+  });
+  const pkgPlaya = mkPkg('pkg_test_playa', 'Día increíble en la playa con la familia', 'facebook');
+  const pkgMonte = mkPkg('pkg_test_monte', 'Caminata por la montaña con amigos', 'facebook');
+  await store.savePackage(pkgPlaya);
+  await store.savePackage(pkgMonte);
+  const embCfg = { store, apiKey: 'K', model: 'text-embedding-3-small' };
+
+  await ok('embedPackage guarda el embedding del paquete', async () => {
+    const a = await embeddings.embedPackage(pkgPlaya, embCfg);
+    const b = await embeddings.embedPackage(pkgMonte, embCfg);
+    assert.equal(a.ok, true);
+    assert.equal(b.ok, true);
+    const got = await store.getPackage('pkg_test_playa');
+    assert.deepEqual(got.embedding, [1, 0, 0]);
+  });
+  await ok('searchSimilar ordena por similitud (playa primero)', async () => {
+    const er = await embeddings.embedTexts({ texts: ['playa'], apiKey: 'K' });
+    const hits = await store.searchSimilar({ embedding: er.vectors[0], limit: 5 });
+    assert.equal(hits.length, 2);
+    assert.equal(hits[0].package.package_id, 'pkg_test_playa');
+    assert.ok(hits[0].score > hits[1].score);
+  });
+  await ok('GET /api/search?q=playa devuelve citas sin secretos', async () => {
+    const r = await fastify.inject({ method: 'GET', url: '/api/search?q=playa&limit=5' });
+    assert.equal(r.statusCode, 200);
+    const body = r.json();
+    assert.equal(body.ok, true);
+    assert.ok(body.resultados.length >= 2);
+    assert.equal(body.resultados[0].package_id, 'pkg_test_playa');
+    assert.ok(body.resultados[0].extracto.includes('playa'));
+    assert.ok(!JSON.stringify(body).includes('test-key'));
+  });
+  await ok('POST /api/qa responde con citas numeradas', async () => {
+    const r = await fastify.inject({ method: 'POST', url: '/api/qa', payload: { question: '¿A dónde fuimos?' } });
+    assert.equal(r.statusCode, 200);
+    const body = r.json();
+    assert.equal(body.ok, true);
+    assert.ok(body.answer.includes('[1]'));
+    assert.ok(Array.isArray(body.citations));
+    assert.equal(body.citations[0].package_id, 'pkg_test_playa');
+    assert.equal(body.citations[0].n, 1);
+    assert.ok(body.citations[0].permalink.includes('fb.test'));
+    assert.ok(!JSON.stringify(body).includes('test-key'));
+  });
+  await ok('POST /api/embeddings/backfill vectoriza los pendientes', async () => {
+    await store.savePackage(mkPkg('pkg_test_backfill', 'Atardecer tranquilo sin playa ni montaña', 'facebook'));
+    const r = await fastify.inject({ method: 'POST', url: '/api/embeddings/backfill', payload: { limit: 50 } });
+    assert.equal(r.statusCode, 200);
+    const body = r.json();
+    assert.equal(body.ok, true);
+    assert.ok(body.procesados >= 1);
+    const resto = await store.packagesMissingEmbeddings(10);
+    assert.equal(resto.length, 0);
+  });
+  await ok('sin OPENAI_API_KEY, /api/search y /api/qa responden 503', async () => {
+    const saved = process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    try {
+      const s = await fastify.inject({ method: 'GET', url: '/api/search?q=playa' });
+      assert.equal(s.statusCode, 503);
+      assert.equal(s.json().error, 'busqueda_semantica_desactivada');
+      const q = await fastify.inject({ method: 'POST', url: '/api/qa', payload: { question: 'x' } });
+      assert.equal(q.statusCode, 503);
+    } finally {
+      process.env.OPENAI_API_KEY = saved;
+    }
+  });
+
   console.log(`\n${passed} pasadas, ${failed} fallidas.`);
   try {
     if (fs.existsSync(DATA_BACKUP)) {
@@ -491,11 +598,11 @@ async function runProd() {
   console.log(`  versión en producción: ${root.version}`);
   console.log(`  webhook_whatsapp: ${root.webhook_whatsapp}`);
 
-  if (root.version !== '1.4.0') {
-    console.log('\n  ⊘ E2E del webhook OMITIDO (no es fallo): producción aún no corre v1.4.0.');
+  if (root.version !== '1.5.0') {
+    console.log('\n  ⊘ E2E del webhook OMITIDO (no es fallo): producción aún no corre v1.5.0.');
     console.log('  Para habilitarlo:');
-    console.log('    1) Sube el ZIP nexo-v1.4.0.zip al repo GitHub "nexo" (archivos planos en la raíz).');
-    console.log('    2) Render redespliega solo; verifica GET / → "version": "1.4.0".');
+    console.log('    1) Sube el ZIP nexo-v1.5.0.zip al repo GitHub "nexo" (archivos planos en la raíz).');
+    console.log('    2) Render redespliega solo; verifica GET / → "version": "1.5.0".');
     console.log('    3) Configura en Render: WHATSAPP_TOKEN, PHONE_NUMBER_ID, VERIFY_TOKEN, APP_SECRET');
     console.log('       (y opcional WA_BATCH_PAUSE_MS, WA_BATCH_MAX_MS, MOMENTOS_AUTHOR).');
     console.log('    4) En la app de Meta (aparte de la del puente): webhook -> ' + base + '/webhook');
@@ -512,6 +619,13 @@ async function runProd() {
     const r = await fetch(`${base}/api/whatsapp/albums?limit=1`);
     assert.equal(r.status, 200);
     assert.ok(Array.isArray((await r.json()).albums));
+  });
+  // v1.5.0 en producción: chequeos de solo lectura (503 = falta OPENAI_API_KEY, no es fallo)
+  await ok('GET /api/search responde (200 o 503 sin OPENAI_API_KEY)', async () => {
+    const r = await fetch(`${base}/api/search?q=playa&limit=2`);
+    assert.ok([200, 503].includes(r.status), `status inesperado: ${r.status}`);
+    const j = await r.json();
+    assert.ok('ok' in j);
   });
 
   if (process.env.WA_E2E === '1') {

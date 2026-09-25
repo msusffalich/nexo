@@ -107,9 +107,26 @@ CREATE TABLE IF NOT EXISTS hub_service_tokens (
 );
 `;
 
+// v1.5.0: búsqueda semántica con pgvector (best-effort: si la extensión no
+// está disponible, el servicio arranca igual y /api/search reporta el motivo).
+const SEMANTIC_SQL = `
+CREATE EXTENSION IF NOT EXISTS vector;
+ALTER TABLE hub_packages ADD COLUMN IF NOT EXISTS embedding vector(1536);
+`;
+
+let semanticReady = false;
+function isSemanticReady() { return semanticReady; }
+
 async function init() {
-  if (!usePostgres) return { backend };
+  if (!usePostgres) { semanticReady = true; return { backend }; }
   await getPool().query(SCHEMA_SQL);
+  try {
+    await getPool().query(SEMANTIC_SQL);
+    semanticReady = true;
+  } catch (e) {
+    semanticReady = false;
+    console.warn('[nexo] pgvector no disponible; búsqueda semántica desactivada:', e.message);
+  }
   return { backend };
 }
 
@@ -341,6 +358,80 @@ async function saveServiceToken(provider, accessToken, expiresAt) {
   }
 }
 
+// ---------------- v1.5.0: búsqueda semántica ----------------
+
+function __setSemanticReadyForTests(v) { semanticReady = v; }
+
+/** Guarda el embedding (vector de 1536) de un paquete. */
+async function savePackageEmbedding(packageId, embedding) {
+  if (usePostgres) {
+    const vec = `[${embedding.join(',')}]`;
+    await getPool().query('UPDATE hub_packages SET embedding = $1::vector WHERE package_id = $2', [vec, packageId]);
+  } else {
+    const p = jdb().packages[packageId];
+    if (p) { p.embedding = embedding; jsave(); }
+  }
+}
+
+/**
+ * Paquetes más parecidos a un embedding.
+ * Devuelve [{ package, score }] ordenados por score desc (coseno 0..1).
+ */
+async function searchSimilar({ embedding, limit = 8, source } = {}) {
+  const lim = Math.max(1, Math.min(parseInt(limit, 10) || 8, 50));
+  if (usePostgres) {
+    if (!semanticReady) throw new Error('pgvector no disponible en la base de datos');
+    const vec = `[${embedding.join(',')}]`;
+    const vals = [vec];
+    let cond = 'embedding IS NOT NULL';
+    if (source) { vals.push(source); cond += ` AND source = $${vals.length}`; }
+    vals.push(lim);
+    const r = await getPool().query(
+      `SELECT data, 1 - (embedding <=> $1::vector) AS score FROM hub_packages
+       WHERE ${cond} ORDER BY embedding <=> $1::vector LIMIT $${vals.length}`,
+      vals
+    );
+    return r.rows.map((x) => ({ package: x.data, score: Number(x.score) }));
+  }
+  // Backend JSON: coseno en JS (prototipo / pruebas).
+  const { cosine } = require('./embeddings');
+  let all = Object.values(jdb().packages).filter((p) => Array.isArray(p.embedding));
+  if (source) all = all.filter((p) => p.source === source);
+  return all
+    .map((p) => ({ package: p, score: cosine(embedding, p.embedding) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, lim);
+}
+
+/** Paquetes sin embedding (para backfill). Devuelve [{ package_id, data }]. */
+async function packagesMissingEmbeddings(limit = 50) {
+  const lim = Math.max(1, Math.min(parseInt(limit, 10) || 50, 200));
+  if (usePostgres) {
+    if (!semanticReady) throw new Error('pgvector no disponible en la base de datos');
+    const r = await getPool().query(
+      'SELECT package_id, data FROM hub_packages WHERE embedding IS NULL ORDER BY created_at DESC LIMIT $1',
+      [lim]
+    );
+    return r.rows;
+  }
+  return Object.values(jdb().packages)
+    .filter((p) => !Array.isArray(p.embedding))
+    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+    .slice(0, lim)
+    .map((p) => ({ package_id: p.package_id, data: p }));
+}
+
+/** Total de paquetes con embedding (para estado). */
+async function countEmbeddings() {
+  if (usePostgres) {
+    if (!semanticReady) return { total: 0, con_embedding: 0, listo: false };
+    const r = await getPool().query('SELECT COUNT(*)::int AS total, COUNT(embedding)::int AS con FROM hub_packages');
+    return { total: r.rows[0].total, con_embedding: r.rows[0].con, listo: true };
+  }
+  const all = Object.values(jdb().packages);
+  return { total: all.length, con_embedding: all.filter((p) => Array.isArray(p.embedding)).length, listo: true };
+}
+
 module.exports = {
   backend: () => backend,
   init,
@@ -362,5 +453,11 @@ module.exports = {
   waMessageMark,
   getServiceToken,
   saveServiceToken,
+  isSemanticReady,
+  savePackageEmbedding,
+  searchSimilar,
+  packagesMissingEmbeddings,
+  countEmbeddings,
+  __setSemanticReadyForTests,
   __setPoolForTests,
 };

@@ -16,6 +16,7 @@ const ai = require('./ai');
 const facebook = require('./source-facebook');
 const instagram = require('./source-instagram');
 const { getFacebookToken } = require('./token-refresh');
+const { embedPackage } = require('./embeddings');
 
 async function extractRaw({ source, kind, from, until, token, igUserId, fetchImpl }) {
   if (source === 'facebook') {
@@ -63,6 +64,11 @@ async function runJob(jobId, cfg, hooks = {}) {
           { jev: hooks.jev !== undefined ? hooks.jev : cfg.jev });
         pkg.target_apps = params.target_apps || [];
         await store.savePackage(pkg);
+        // v1.5.0: vectorizar para búsqueda semántica (nunca rompe la extracción)
+        const emb = await embedPackage(pkg, { store, apiKey: cfg.openaiKey, model: cfg.embeddingModel });
+        if (!emb.ok && emb.reason !== 'sin_api_key' && emb.reason !== 'sin_texto') {
+          console.warn(`[nexo] embedding omitido para ${pkg.package_id}: ${emb.reason}`);
+        }
         stats.nuevos += 1;
         if (hooks.onProgress) hooks.onProgress(pkg);
       } catch (e) {

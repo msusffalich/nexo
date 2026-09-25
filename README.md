@@ -6,7 +6,9 @@
 
 > ⚠️ **El Asistente Puente actual NO se toca.** Sigue en producción con su repo, su servicio Render y su webhook de Meta intactos. NEXO es un servicio **nuevo y separado**.
 
-**v1.4.0 — novedad:** renovación **automática** del token de Facebook: NEXO verifica su vigencia y lo renueva solo antes de que venza (60 días), sin que tengas que repetir el flujo manual. Ver [Token de Facebook](#puesta-en-marcha-pasos-para-miguel).
+**v1.5.0 — novedad:** **búsqueda semántica + Q&A con citas**: cada paquete se vectoriza (pgvector) y puedes preguntar en lenguaje natural — `GET /api/search?q=...`, `POST /api/qa` (responde solo con tus recuerdos y cita `[1]…[n]` con fuente, fecha y enlace). Requiere `OPENAI_API_KEY` (ver [Variables opcionales](#puesta-en-marcha-pasos-para-miguel)).
+
+**v1.4.0:** renovación **automática** del token de Facebook: NEXO verifica su vigencia y lo renueva solo antes de que venza (60 días), sin que tengas que repetir el flujo manual. Ver [Token de Facebook](#puesta-en-marcha-pasos-para-miguel).
 
 **v1.3.0:** webhook de WhatsApp **opt-in** con loteo multi-mensaje: las fotos que mandas seguidas se juntan en un solo álbum para **Momentos**, y cada nota de voz queda como transcripción separada. Ver [Webhook de WhatsApp multi-mensaje](#webhook-de-whatsapp-multi-mensaje-v130) y `INSTRUCCIONES.md`.
 
@@ -36,7 +38,7 @@ WhatsApp: el bot actual sigue capturando foto+relato como siempre. El **historia
 **1. Crea un repo NUEVO en GitHub**
 - Nombre sugerido: `nexo` (público o privado, como prefieras).
 - Sube estos archivos **planos en la raíz** (todo el código runtime va 100% en la raíz, SIN subcarpetas de código: las carpetas no sobreviven el upload web de GitHub, y eso fue lo que tumbó el deploy de la v1.1.0):
-  `package.json`, `index.js`, `config.js`, `store.js`, `intent.js`, `jobs.js`, `normalize.js`, `ai.js`, `jev.js`, `cli.js`, `whatsapp-export.js`, `whatsapp-webhook.js`, `token-refresh.js`, `source-facebook.js`, `source-instagram.js`, `adapter-legado.js`, `adapter-momentos.js`, `test-all.js`, `render.yaml`, `.env.example`, `.gitignore`, `README.md`, `INSTRUCCIONES.md`, `CHANGELOG.md`, y las carpetas no-críticas `test/`, `media/`, `assets/` (con `nexo-logo.png`, `nexo-icon.png` y `favicon.ico`).
+  `package.json`, `index.js`, `config.js`, `store.js`, `intent.js`, `jobs.js`, `normalize.js`, `ai.js`, `jev.js`, `embeddings.js`, `cli.js`, `whatsapp-export.js`, `whatsapp-webhook.js`, `token-refresh.js`, `source-facebook.js`, `source-instagram.js`, `adapter-legado.js`, `adapter-momentos.js`, `test-all.js`, `render.yaml`, `.env.example`, `.gitignore`, `README.md`, `INSTRUCCIONES.md`, `CHANGELOG.md`, y las carpetas no-críticas `test/`, `media/`, `assets/` (con `nexo-logo.png`, `nexo-icon.png` y `favicon.ico`).
 - No subas `node_modules/` ni ningún `.env`.
 
 **2. Crea un Web Service NUEVO en Render (no toques el actual)**
@@ -60,7 +62,8 @@ WhatsApp: el bot actual sigue capturando foto+relato como siempre. El **historia
 - Pégalo en `INSTAGRAM_USER_ID`. Sin esto, la fuente Instagram queda inactiva (Facebook sigue funcionando).
 
 **6. Variables opcionales**
-- `OPENAI_API_KEY` — mejora los resúmenes con IA; sin ella usa heurísticas locales gratuitas.
+- `OPENAI_API_KEY` — mejora los resúmenes con IA; sin ella usa heurísticas locales gratuitas. **Además activa la búsqueda semántica y el Q&A (v1.5.0)**: con la key, cada paquete se vectoriza al guardarse y puedes usar `GET /api/search?q=...` y `POST /api/qa` (respuestas con citas `[1]…[n]`); sin la key esas rutas responden 503 sin afectar nada más.
+- `EMBEDDING_MODEL` (opcional, default `text-embedding-3-small`) y `QA_MODEL` (opcional, default `gpt-4o-mini`).
 - `TYPESAFE_API_KEY` (o `JEV_API_KEY`) — activa las **decisiones JEV** (ver sección abajo). Opcionales: `JEV_MODEL` (default `jev-latest`), `JEV_BASE_URL` (default `https://api.typesafe.ai`).
 - `LEGADO_VIVO_URL`, `BRIDGE_API_KEY`, `LEGADO_FAMILY_ID` — para enviar paquetes a Legado Vivo (puedes reusar los mismos valores del puente actual).
 - `DRY_RUN=true` — modo prueba sin llamadas reales.
@@ -160,6 +163,18 @@ El título del álbum usa la zona horaria **America/Lima**: `Fotos del 24 de sep
 | GET | `/api/whatsapp/albums/:id/import` | Payload de importación a Momentos |
 | POST | `/api/whatsapp/albums/:id/import` | Intentar entrega a Momentos |
 | GET | `/api/whatsapp/media/:albumId/:file` | Bytes de un medio del álbum |
+| GET | `/api/search?q=...&limit=` | **v1.5.0:** paquetes por similitud semántica (requiere `OPENAI_API_KEY`) |
+| POST | `/api/qa` `{question,limit?}` | **v1.5.0:** respuesta con citas `[1]…[n]` (requiere `OPENAI_API_KEY`) |
+| POST | `/api/embeddings/backfill` `{limit?}` | **v1.5.0:** vectoriza paquetes sin embedding |
+
+## Búsqueda semántica + Q&A (v1.5.0)
+
+Cada paquete que extrae NEXO se **vectoriza** con OpenAI `text-embedding-3-small` y se guarda en PostgreSQL con **pgvector** (columna `hub_packages.embedding`); en el modo JSON local la similitud se calcula en JS. Si falla el embedding, la extracción continúa igual.
+
+- `GET /api/search?q=atardecer en la playa` → `{ ok, q, resultados: [{ n, package_id, source, created_at, permalink, score, extracto }] }` ordenados por similitud.
+- `POST /api/qa` con `{"question": "¿cuándo fuimos a la playa con Dante?"}` → `{ ok, answer, citations: [...] }`. El modelo responde **solo** con los fragmentos recuperados y cita cada dato como `[1]`, `[2]`; si no hay nada, lo dice en vez de inventar.
+- `POST /api/embeddings/backfill` → vectoriza en lotes de 20 los paquetes que aún no tienen embedding (útil tras activar la key por primera vez).
+- Sin `OPENAI_API_KEY`: las tres rutas responden `503 { error: "busqueda_semantica_desactivada" }`. La raíz `/` muestra `busqueda_semantica: "activa"` o `"desactivada (configura OPENAI_API_KEY)"`.
 
 ## Adaptadores por app consumidora
 
@@ -181,11 +196,13 @@ El título del álbum usa la zona horaria **America/Lima**: `Fotos del 24 de sep
 ## Pruebas
 
 - `npm test` → 26 pruebas (unitarias + E2E en DRY_RUN con APIs simuladas). Sin credenciales reales.
-- `node test-all.js` → 36 pruebas: las 26 anteriores no se repiten aquí; son **unitarias del webhook** (triggers, títulos con rango de fechas, comandos, firma, temas de Momentos) + **E2E del loteo multi-mensaje** con `fastify.inject` (caso 3 fotos + 2 audios + texto, caption tardío, comando explícito, remitentes separados, duplicados, tope de 3 min, rango de fechas).
-- `TARGET=prod node test-all.js` → verificación de solo lectura contra producción (versión, rutas). Con `WA_E2E=1` y `WA_TEST_APP_SECRET` corre además el E2E firmado contra prod (requiere v1.3.0 desplegado; crea un álbum de prueba).
+- `node test-all.js` → 51 pruebas: unitarias del webhook (triggers, títulos con rango de fechas, comandos, firma, temas de Momentos) + E2E del loteo multi-mensaje con `fastify.inject` + unitarias de token-refresh (debug/exchange/ensureFreshToken) + **v1.5.0: embeddings, búsqueda semántica, Q&A con citas y backfill** (fetch simulado, sin red).
+- `TARGET=prod node test-all.js` → verificación de solo lectura contra producción (versión, rutas, `/api/search`). Con `WA_E2E=1` y `WA_TEST_APP_SECRET` corre además el E2E firmado contra prod (requiere v1.5.0 desplegado; crea un álbum de prueba).
 
 ## Versiones
 
+- **v1.5.0** — Búsqueda semántica + Q&A con citas: cada paquete se vectoriza (OpenAI `text-embedding-3-small`, pgvector en PostgreSQL, coseno en JS para el modo JSON); `GET /api/search?q=...` (similitud semántica), `POST /api/qa` (responde solo con los fragmentos y cita `[1]…[n]` con fuente/fecha/permalink), `POST /api/embeddings/backfill` (lotes de 20); sin `OPENAI_API_KEY` las rutas responden 503 sin romper nada; variables opcionales `EMBEDDING_MODEL`, `QA_MODEL`; `test-all.js` con 51 pruebas.
+- **v1.4.0** — Renovación automática del token de Facebook (`token-refresh.js`, `GET /api/facebook/token`, `POST /api/facebook/token/refresh`, chequeo al arrancar + cada 24 h).
 - **v1.3.0** — Webhook de WhatsApp multi-mensaje (opt-in): `GET/POST /webhook`, loteo por remitente (pausa 30 s / tope 3 min), triggers `photo_relatos`, `album_caption`, `album_no_caption`, `multi_photo_album`, `audio_note`, `multi_audio_notes`, `text_only`, `album_add_text`; audios siempre a transcripciones separadas (Whisper si hay `OPENAI_API_KEY`); caption tardío no se anexa solo (comando explícito `agrégala al álbum`); álbumes preparados para Momentos (`/api/whatsapp/albums…`, título con rango de fechas en America/Lima, payload de importación `createalbum`/`uploadmedia`/`addtextitem`); `test-all.js` con E2E local y chequeo de producción.
 - **v1.1.2** — Nueva ruta pública `GET /privacidad` con la política de privacidad (página exigida por Meta para habilitar el inicio de sesión en la app NEXO de Facebook). Sin otros cambios funcionales.
 - **v1.1.1** — Todo el código runtime plano en la raíz (`source-facebook.js`, `source-instagram.js`, `adapter-legado.js`; se eliminaron las carpetas `sources/` y `adapters/`). Motivo: las subcarpetas no sobreviven el upload web de GitHub y tumbaban el deploy en Render (`Cannot find module './sources/facebook'`).

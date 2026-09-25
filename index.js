@@ -33,6 +33,10 @@
  *   --- v1.4.0: renovación automática del token de Facebook ---
  *   GET  /api/facebook/token            estado del token (válido, días restantes)
  *   POST /api/facebook/token/refresh    forzar renovación ahora
+ *   --- v1.5.0: búsqueda semántica + Q&A ---
+ *   GET  /api/search?q=...              paquetes por similitud semántica
+ *   POST /api/qa {question}             respuesta con citas
+ *   POST /api/embeddings/backfill       vectoriza paquetes sin embedding
  */
 
 const fastify = require('fastify')({ logger: true });
@@ -49,8 +53,9 @@ const momentos = require('./adapter-momentos');
 const wh = require('./whatsapp-webhook');
 const { parseExport } = require('./whatsapp-export');
 const tokenRefresh = require('./token-refresh');
+const embeddings = require('./embeddings');
 
-const VERSION = '1.4.0';
+const VERSION = '1.5.0';
 
 // Instancia perezosa del webhook (usa la config del entorno al primer uso).
 let _webhook = null;
@@ -120,6 +125,7 @@ fastify.get('/', async () => {
     dry_run: c.dryRun,
     fuentes_configuradas: fuentesActivas(c),
     ia: ['heuristica-local'].concat(c.openaiKey ? ['openai'] : [], c.jev.key ? ['jev-decisiones'] : []).join('+'),
+    busqueda_semantica: c.openaiKey ? 'activa' : 'desactivada (configura OPENAI_API_KEY)',
     adaptador_legado_vivo: legado.bridgeEnabled(c),
     webhook_whatsapp: webhookEnabled(c)
       ? 'activo (loteo multi-mensaje)'
@@ -305,6 +311,79 @@ fastify.post('/api/facebook/token/refresh', async () => {
   return { ok: st.ok && st.refreshed, estado: st };
 });
 
+// ---- v1.5.0: búsqueda semántica + Q&A ----
+
+function semanticDisabled(reply) {
+  return reply.code(503).send({ ok: false, error: 'busqueda_semantica_desactivada', detalle: 'Configura OPENAI_API_KEY en el entorno.' });
+}
+
+fastify.get('/api/search', async (req, reply) => {
+  const c = cfg();
+  if (!c.openaiKey) return semanticDisabled(reply);
+  const q = String(req.query.q || '').trim();
+  if (!q) return reply.code(400).send({ ok: false, error: 'falta q' });
+  const lim = parseInt(req.query.limit || '8', 10);
+  const er = await embeddings.embedTexts({ texts: [q], apiKey: c.openaiKey, model: c.embeddingModel });
+  if (!er.ok) return reply.code(502).send({ ok: false, error: er.reason, detail: er.detail });
+  let hits;
+  try {
+    hits = await store.searchSimilar({ embedding: er.vectors[0], limit: lim, source: req.query.source || undefined });
+  } catch (e) {
+    return reply.code(503).send({ ok: false, error: 'busqueda_no_disponible', detalle: e.message });
+  }
+  return { ok: true, q, resultados: hits.map((h, i) => embeddings.toCitation(h, i + 1)) };
+});
+
+fastify.post('/api/qa', async (req, reply) => {
+  const c = cfg();
+  if (!c.openaiKey) return semanticDisabled(reply);
+  const question = String((req.body && req.body.question) || '').trim();
+  if (!question) return reply.code(400).send({ ok: false, error: 'falta question' });
+  const lim = parseInt((req.body && req.body.limit) || '8', 10);
+  const er = await embeddings.embedTexts({ texts: [question], apiKey: c.openaiKey, model: c.embeddingModel });
+  if (!er.ok) return reply.code(502).send({ ok: false, error: er.reason, detail: er.detail });
+  let hits;
+  try {
+    hits = await store.searchSimilar({ embedding: er.vectors[0], limit: lim });
+  } catch (e) {
+    return reply.code(503).send({ ok: false, error: 'busqueda_no_disponible', detalle: e.message });
+  }
+  if (!hits.length) {
+    return { ok: true, answer: 'No encontré nada sobre eso en tus recuerdos.', citations: [] };
+  }
+  const ar = await embeddings.answerQuestion({ question, hits, apiKey: c.openaiKey, model: c.qaModel });
+  if (!ar.ok) return reply.code(502).send({ ok: false, error: ar.reason, detail: ar.detail });
+  return { ok: true, answer: ar.answer, citations: hits.map((h, i) => embeddings.toCitation(h, i + 1)) };
+});
+
+fastify.post('/api/embeddings/backfill', async (req, reply) => {
+  const c = cfg();
+  if (!c.openaiKey) return semanticDisabled(reply);
+  const lim = parseInt((req.body && req.body.limit) || '50', 10);
+  let pendientes;
+  try {
+    pendientes = await store.packagesMissingEmbeddings(lim);
+  } catch (e) {
+    return reply.code(503).send({ ok: false, error: 'busqueda_no_disponible', detalle: e.message });
+  }
+  let procesados = 0;
+  // Lotes de 20 textos por llamada a la API.
+  for (let i = 0; i < pendientes.length; i += 20) {
+    const lote = pendientes.slice(i, i + 20);
+    const er = await embeddings.embedTexts({
+      texts: lote.map((p) => embeddings.packageText(p.data)),
+      apiKey: c.openaiKey, model: c.embeddingModel,
+    });
+    if (!er.ok) break;
+    for (let j = 0; j < lote.length; j++) {
+      await store.savePackageEmbedding(lote[j].package_id, er.vectors[j]);
+      procesados += 1;
+    }
+  }
+  const resto = await store.packagesMissingEmbeddings(1).catch(() => []);
+  return { ok: true, procesados, pendientes: resto.length };
+});
+
 // FASE 2: importación de exportación manual de WhatsApp
 fastify.post('/api/import/whatsapp-export', async (req, reply) => {
   const { text, chatName } = req.body || {};
@@ -318,6 +397,7 @@ fastify.post('/api/import/whatsapp-export', async (req, reply) => {
     await ai.enrich(pkg, c.openaiKey, undefined, { jev: c.jev });
     pkg.target_apps = ['legado-vivo', 'momentos'];
     await store.savePackage(pkg);
+    await embeddings.embedPackage(pkg, { store, apiKey: c.openaiKey, model: c.embeddingModel });
     nuevos += 1;
   }
   return { ok: true, mensajes: items.length, nuevos, nota: 'fase 2: importación manual' };

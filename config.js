@@ -20,6 +20,10 @@ function cfg() {
     facebookAppId: process.env.FACEBOOK_APP_ID || '',
     facebookAppSecret: process.env.FACEBOOK_APP_SECRET || '',
     fbTokenRefreshMarginDays: parseInt(process.env.FB_TOKEN_REFRESH_MARGIN_DAYS || '7', 10) || 7,
+    // --- Búsqueda semántica + Q&A (v1.5.0) ---
+    // Sin OPENAI_API_KEY, /api/search y /api/qa responden 503 sin romper nada.
+    embeddingModel: process.env.EMBEDDING_MODEL || 'text-embedding-3-small',
+    qaModel: process.env.QA_MODEL || 'gpt-4o-mini',
     // IA (opcional: sin esto se usan heurísticas locales)
     openaiKey: process.env.OPENAI_API_KEY || '',
     // JEV / TypeSafe AI (opcional: decisiones rápidas; sin key, la IA usa heurísticas)

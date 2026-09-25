@@ -18,8 +18,17 @@ Desde la **v1.3.0**, además, puede recibir mensajes de **WhatsApp** (opt-in): s
 2. **Render:** New → Web Service → conecta el repo `nexo`. Build: `npm install` · Start: `npm start` · Plan Free. (O usa Blueprint con `render.yaml`.)
 3. **Base de datos:** crea una base nueva en Neon y pega el connection string en `DATABASE_URL`.
 4. **Variables mínimas:** `FACEBOOK_USER_TOKEN` (Graph API Explorer, permisos `user_posts` + `user_photos`, extendido a 60 días).
-5. **Opcionales:** `INSTAGRAM_USER_ID`, `OPENAI_API_KEY` (mejores resúmenes + transcripción de audios), `TYPESAFE_API_KEY` (decisiones JEV), `LEGADO_VIVO_URL` + `BRIDGE_API_KEY` + `LEGADO_FAMILY_ID` (entrega a Legado Vivo).
-6. **Prueba:** abre `https://tu-servicio.onrender.com/` → debe decir `"servicio": "nexo"` y `"version": "1.4.0"`.
+5. **Opcionales:** `INSTAGRAM_USER_ID`, `OPENAI_API_KEY` (mejores resúmenes + transcripción de audios + **búsqueda semántica y Q&A v1.5.0**; puedes copiar el valor del servicio asistente-puente en Render), `TYPESAFE_API_KEY` (decisiones JEV), `LEGADO_VIVO_URL` + `BRIDGE_API_KEY` + `LEGADO_FAMILY_ID` (entrega a Legado Vivo).
+6. **Prueba:** abre `https://tu-servicio.onrender.com/` → debe decir `"servicio": "nexo"` y `"version": "1.5.0"`.
+
+### Búsqueda semántica + Q&A con citas (v1.5.0)
+
+Tu archivo familiar conversacional. Requiere `OPENAI_API_KEY` en Render (sin ella, las rutas responden 503 y nada más cambia).
+
+1. **Cada paquete se vectoriza solo** al guardarse (OpenAI `text-embedding-3-small`, pgvector en PostgreSQL). Si activas la key después de tener paquetes, vectoriza los pendientes con `POST /api/embeddings/backfill`.
+2. **Busca por significado:** `GET /api/search?q=atardecer en la playa&limit=8` → paquetes ordenados por similitud, con `score`, `extracto`, `permalink`, fuente y fecha.
+3. **Pregunta en lenguaje natural:** `POST /api/qa` con `{"question": "¿cuándo fuimos a la playa con Dante?"}` → respuesta breve que usa **solo** tus recuerdos y cita cada dato como `[1]`, `[2]`; cada cita trae `package_id`, fuente, fecha y `permalink`. Si no hay nada, lo dice en vez de inventar.
+4. Opcionales: `EMBEDDING_MODEL` (default `text-embedding-3-small`), `QA_MODEL` (default `gpt-4o-mini`).
 
 ### Renovación automática del token de Facebook (v1.4.0)
 
@@ -58,7 +67,7 @@ Sin esas dos variables, la renovación sigue siendo manual (repite el flujo del 
 
 ### Pruebas
 
-- Local: `node test-all.js` (36 pruebas, sin red ni credenciales).
+- Local: `node test-all.js` (51 pruebas, sin red ni credenciales).
 - Producción (solo lectura): `TARGET=prod node test-all.js`.
 - E2E firmado contra prod: `WA_E2E=1 TARGET=prod WA_TEST_APP_SECRET=<APP_SECRET> node test-all.js`.
 
@@ -78,8 +87,17 @@ Since **v1.3.0** it can also receive **WhatsApp** messages (opt-in): send severa
 2. **Render:** New → Web Service → connect the `nexo` repo. Build: `npm install` · Start: `npm start` · Free plan. (Or use Blueprint with `render.yaml`.)
 3. **Database:** create a new Neon database and paste the connection string into `DATABASE_URL`.
 4. **Minimum vars:** `FACEBOOK_USER_TOKEN` (Graph API Explorer, `user_posts` + `user_photos` scopes, extended to 60 days).
-5. **Optional:** `INSTAGRAM_USER_ID`, `OPENAI_API_KEY` (better summaries + audio transcription), `TYPESAFE_API_KEY` (JEV decisions), `LEGADO_VIVO_URL` + `BRIDGE_API_KEY` + `LEGADO_FAMILY_ID` (Legado Vivo delivery).
-6. **Test:** open `https://your-service.onrender.com/` → it must say `"servicio": "nexo"` and `"version": "1.4.0"`.
+5. **Optional:** `INSTAGRAM_USER_ID`, `OPENAI_API_KEY` (better summaries + audio transcription + **semantic search & Q&A v1.5.0**; you can copy the value from the asistente-puente service in Render), `TYPESAFE_API_KEY` (JEV decisions), `LEGADO_VIVO_URL` + `BRIDGE_API_KEY` + `LEGADO_FAMILY_ID` (Legado Vivo delivery).
+6. **Test:** open `https://your-service.onrender.com/` → it must say `"servicio": "nexo"` and `"version": "1.5.0"`.
+
+### Semantic search + Q&A with citations (v1.5.0)
+
+Your conversational family archive. Requires `OPENAI_API_KEY` in Render (without it, the routes answer 503 and nothing else changes).
+
+1. **Every package is vectorized automatically** when saved (OpenAI `text-embedding-3-small`, pgvector in PostgreSQL). If you enable the key after already having packages, backfill the missing ones with `POST /api/embeddings/backfill`.
+2. **Search by meaning:** `GET /api/search?q=sunset at the beach&limit=8` → packages ranked by similarity, with `score`, `extracto`, `permalink`, source and date.
+3. **Ask in natural language:** `POST /api/qa` with `{"question": "when did we go to the beach with Dante?"}` → a short answer using **only** your memories, citing each fact as `[1]`, `[2]`; each citation carries `package_id`, source, date and `permalink`. If nothing matches, it says so instead of inventing.
+4. Optional: `EMBEDDING_MODEL` (default `text-embedding-3-small`), `QA_MODEL` (default `gpt-4o-mini`).
 
 ### Automatic Facebook token renewal (v1.4.0)
 
@@ -118,6 +136,6 @@ Without those two variables, renewal stays manual (repeat the Graph API Explorer
 
 ### Tests
 
-- Local: `node test-all.js` (36 tests, no network or credentials).
+- Local: `node test-all.js` (51 tests, no network or credentials).
 - Production (read-only): `TARGET=prod node test-all.js`.
 - Signed E2E against prod: `WA_E2E=1 TARGET=prod WA_TEST_APP_SECRET=<APP_SECRET> node test-all.js`.

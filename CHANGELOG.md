@@ -1,5 +1,20 @@
 # NEXO — Changelog
 
+## v1.5.0 — 25 de septiembre de 2026
+
+**Búsqueda semántica + Q&A con citas (archivo familiar conversacional).**
+
+- Cada paquete extraído se **vectoriza** con OpenAI `text-embedding-3-small` (1536 dims) y se guarda en PostgreSQL con **pgvector** (`hub_packages.embedding`); el modo JSON local usa coseno en JS. La extensión se instala con `CREATE EXTENSION IF NOT EXISTS vector` al arrancar (best-effort: si no está disponible, el servicio arranca igual y la búsqueda reporta el motivo).
+- Nuevas rutas:
+  - `GET /api/search?q=...&limit=` — paquetes por **similitud semántica** (no por palabras exactas), con puntaje.
+  - `POST /api/qa { question, limit? }` — responde **solo** con los fragmentos recuperados (si no está, lo dice) y devuelve **citas numeradas** `[1]…[n]` con `package_id`, fuente, fecha, permalink y extracto.
+  - `POST /api/embeddings/backfill { limit? }` — vectoriza en lotes los paquetes que aún no tienen embedding.
+- Sin `OPENAI_API_KEY`, las tres rutas responden 503 (`busqueda_semantica_desactivada`): la extracción sigue funcionando igual y los embeddings fallidos nunca la rompen.
+- Nuevas variables opcionales: `EMBEDDING_MODEL` (default `text-embedding-3-small`), `QA_MODEL` (default `gpt-4o-mini`).
+- La raíz `/` ahora reporta `busqueda_semantica: activa | desactivada (configura OPENAI_API_KEY)`.
+- `test-all.js`: 51 pruebas (9 nuevas de embeddings/search/Q&A/backfill con fetch simulado, sin red ni credenciales) + chequeo de producción para `/api/search`.
+- Docs: `README.md`, `INSTRUCCIONES.md` (bilingüe), `.env.example`.
+
 ## v1.4.0 — 25 de septiembre de 2026
 
 **Renovación automática del token de Facebook.**
