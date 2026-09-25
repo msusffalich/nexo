@@ -15,6 +15,7 @@ const { toPackage } = require('./normalize');
 const ai = require('./ai');
 const facebook = require('./source-facebook');
 const instagram = require('./source-instagram');
+const { getFacebookToken } = require('./token-refresh');
 
 async function extractRaw({ source, kind, from, until, token, igUserId, fetchImpl }) {
   if (source === 'facebook') {
@@ -45,7 +46,9 @@ async function runJob(jobId, cfg, hooks = {}) {
       kind: params.kind || 'todo',
       from: params.from,
       until: params.to,
-      token: cfg.facebookToken,
+      // El token vigente vive en la BD si la auto-renovación lo actualizó;
+      // si no, se usa el del entorno.
+      token: params.source === 'facebook' ? await getFacebookToken({ store, cfg }) : cfg.facebookToken,
       igUserId: cfg.instagramUserId,
       fetchImpl: hooks.fetchImpl,
     });

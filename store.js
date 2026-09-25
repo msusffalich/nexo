@@ -22,7 +22,7 @@ const backend = usePostgres ? 'postgres' : 'json';
 // ---------------- JSON local ----------------
 
 function emptyDb() {
-  return { jobs: {}, packages: {}, seen: {}, seq: 0 };
+  return { jobs: {}, packages: {}, seen: {}, wa_albums: {}, wa_seen: {}, service_tokens: {}, seq: 0 };
 }
 let jsonDb = null;
 function jdb() {
@@ -35,6 +35,9 @@ function jdb() {
     jsonDb.jobs = jsonDb.jobs || {};
     jsonDb.packages = jsonDb.packages || {};
     jsonDb.seen = jsonDb.seen || {};
+    jsonDb.wa_albums = jsonDb.wa_albums || {};
+    jsonDb.wa_seen = jsonDb.wa_seen || {};
+    jsonDb.service_tokens = jsonDb.service_tokens || {};
   }
   return jsonDb;
 }
@@ -80,6 +83,27 @@ CREATE TABLE IF NOT EXISTS hub_seen (
   dedupe_key TEXT PRIMARY KEY,
   package_id TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- v1.3.0: álbumes/notas preparados desde el webhook de WhatsApp multi-mensaje
+CREATE TABLE IF NOT EXISTS hub_wa_albums (
+  album_id TEXT PRIMARY KEY,
+  wa_id TEXT NOT NULL,
+  data JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS hub_wa_albums_wa_id_idx ON hub_wa_albums (wa_id);
+-- v1.3.0: idempotencia de eventos del webhook (Meta puede reintentar)
+CREATE TABLE IF NOT EXISTS hub_wa_seen (
+  message_id TEXT PRIMARY KEY,
+  wa_id TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- v1.4.0: tokens de servicio auto-renovables (p. ej. token de usuario de Facebook)
+CREATE TABLE IF NOT EXISTS hub_service_tokens (
+  provider TEXT PRIMARY KEY,
+  access_token TEXT NOT NULL,
+  expires_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 `;
 
@@ -213,6 +237,110 @@ async function setPackageStatus(packageId, status) {
   }
 }
 
+// ---------------- v1.3.0: álbumes de WhatsApp ----------------
+
+/** Guarda el álbum/nota preparado por el webhook. data es el payload completo. */
+async function saveWaAlbum(album) {
+  const row = { ...album, created_at: album.created_at || new Date().toISOString() };
+  if (usePostgres) {
+    await getPool().query(
+      `INSERT INTO hub_wa_albums (album_id, wa_id, data)
+       VALUES ($1,$2,$3)
+       ON CONFLICT (album_id) DO UPDATE SET data = EXCLUDED.data`,
+      [row.album_id, row.wa_id, JSON.stringify(row)]
+    );
+  } else {
+    jdb().wa_albums[row.album_id] = row;
+    jsave();
+  }
+  return row;
+}
+
+async function getWaAlbum(albumId) {
+  if (usePostgres) {
+    const r = await getPool().query('SELECT data FROM hub_wa_albums WHERE album_id = $1', [albumId]);
+    return r.rows[0] ? r.rows[0].data : null;
+  }
+  return jdb().wa_albums[albumId] || null;
+}
+
+async function listWaAlbums({ waId, limit = 20 } = {}) {
+  if (usePostgres) {
+    const vals = [];
+    const cond = waId ? 'WHERE wa_id = $1' : '';
+    if (waId) vals.push(waId);
+    vals.push(limit);
+    const r = await getPool().query(
+      `SELECT data FROM hub_wa_albums ${cond} ORDER BY created_at DESC LIMIT $${vals.length}`, vals
+    );
+    return r.rows.map((x) => x.data);
+  }
+  let all = Object.values(jdb().wa_albums);
+  if (waId) all = all.filter((a) => a.wa_id === waId);
+  return all.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || '')).slice(0, limit);
+}
+
+/** Último álbum del remitente (para el comando "agrégala al álbum"). */
+async function lastWaAlbum(waId) {
+  const list = await listWaAlbums({ waId, limit: 1 });
+  return list[0] || null;
+}
+
+/** Idempotencia: ¿ya se procesó este message_id de Meta? */
+async function waMessageSeen(messageId) {
+  if (usePostgres) {
+    const r = await getPool().query('SELECT message_id FROM hub_wa_seen WHERE message_id = $1', [messageId]);
+    return Boolean(r.rows[0]);
+  }
+  return Boolean(jdb().wa_seen[messageId]);
+}
+
+async function waMessageMark(messageId, waId) {
+  if (usePostgres) {
+    await getPool().query(
+      'INSERT INTO hub_wa_seen (message_id, wa_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+      [messageId, waId]
+    );
+  } else {
+    jdb().wa_seen[messageId] = { wa_id: waId, at: new Date().toISOString() };
+    jsave();
+  }
+}
+
+// ---------------- v1.4.0: tokens de servicio ----------------
+
+/**
+ * Lee el token guardado para un proveedor.
+ * Devuelve { access_token, expires_at: Date|null } o null.
+ */
+async function getServiceToken(provider) {
+  if (usePostgres) {
+    const r = await getPool().query('SELECT access_token, expires_at FROM hub_service_tokens WHERE provider = $1', [provider]);
+    const row = r.rows[0];
+    if (!row) return null;
+    return { access_token: row.access_token, expires_at: row.expires_at ? new Date(row.expires_at) : null };
+  }
+  const t = jdb().service_tokens[provider];
+  if (!t) return null;
+  return { access_token: t.access_token, expires_at: t.expires_at ? new Date(t.expires_at) : null };
+}
+
+/** Guarda (o reemplaza) el token de un proveedor. expiresAt: Date|null. */
+async function saveServiceToken(provider, accessToken, expiresAt) {
+  const iso = expiresAt ? new Date(expiresAt).toISOString() : null;
+  if (usePostgres) {
+    await getPool().query(
+      `INSERT INTO hub_service_tokens (provider, access_token, expires_at, updated_at)
+       VALUES ($1,$2,$3,now())
+       ON CONFLICT (provider) DO UPDATE SET access_token = EXCLUDED.access_token, expires_at = EXCLUDED.expires_at, updated_at = now()`,
+      [provider, accessToken, iso]
+    );
+  } else {
+    jdb().service_tokens[provider] = { access_token: accessToken, expires_at: iso };
+    jsave();
+  }
+}
+
 module.exports = {
   backend: () => backend,
   init,
@@ -226,5 +354,13 @@ module.exports = {
   getPackage,
   listPackages,
   setPackageStatus,
+  saveWaAlbum,
+  getWaAlbum,
+  listWaAlbums,
+  lastWaAlbum,
+  waMessageSeen,
+  waMessageMark,
+  getServiceToken,
+  saveServiceToken,
   __setPoolForTests,
 };

@@ -25,3 +25,24 @@ services:
         sync: false
       - key: LEGADO_FAMILY_ID
         sync: false
+      # --- v1.3.0: webhook de WhatsApp multi-mensaje (opt-in) ---
+      # Sin estas 4 variables el webhook existe pero rechaza los eventos.
+      # El webhook se configura en una app de Meta APARTE de la del puente
+      # actual (no se cambia la Callback URL del Asistente Puente).
+      - key: WHATSAPP_TOKEN
+        sync: false
+      - key: PHONE_NUMBER_ID
+        sync: false
+      - key: VERIFY_TOKEN
+        sync: false
+      - key: APP_SECRET
+        sync: false
+      # Loteo multi-mensaje (ms): pausa sin mensajes que cierra el lote,
+      # y tope duro del lote. Defaults: 30000 y 180000.
+      - key: WA_BATCH_PAUSE_MS
+        value: "30000"
+      - key: WA_BATCH_MAX_MS
+        value: "180000"
+      # Autor que aparece en los álbumes de Momentos
+      - key: MOMENTOS_AUTHOR
+        value: "Miguel Susffalich"

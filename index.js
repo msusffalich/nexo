@@ -4,9 +4,11 @@
  * NEXO — servidor.
  *
  * Hub de extracción de contenidos (Facebook, Instagram, WhatsApp-fase2).
- * NO toca el Asistente Puente en producción: no recibe webhooks de Meta
- * (la Callback URL del app Meta actual no se cambia) y vive en su propio
- * servicio de Render con su propio repo.
+ * NO toca el Asistente Puente en producción: vive en su propio servicio de
+ * Render con su propio repo. Desde v1.3.0 puede recibir webhooks de Meta de
+ * forma OPCIONAL (WHATSAPP_TOKEN, PHONE_NUMBER_ID, VERIFY_TOKEN, APP_SECRET)
+ * en /webhook, sin cambiar la Callback URL del app Meta del puente actual:
+ * se configura un webhook aparte (otra app de Meta u otro número).
  *
  * Rutas:
  *   GET  /                              estado del servicio
@@ -20,19 +22,61 @@
  *   POST /api/import/whatsapp-export {text, chatName}  (FASE 2)
  *   GET  /api/ayuda                     ejemplos de comandos
  *   GET  /privacidad                    política de privacidad (requerida por Meta)
+ *   --- v1.3.0: webhook de WhatsApp multi-mensaje (opt-in) ---
+ *   GET  /webhook                       verificación de Meta
+ *   POST /webhook                       eventos de WhatsApp (firma X-Hub-Signature-256)
+ *   GET  /api/whatsapp/albums           álbumes/notas preparados (?wa_id, ?limit)
+ *   GET  /api/whatsapp/albums/:id       un álbum preparado
+ *   GET  /api/whatsapp/albums/:id/import  payload de importación a Momentos
+ *   POST /api/whatsapp/albums/:id/import  intentar entrega a Momentos
+ *   GET  /api/whatsapp/media/:albumId/:file  bytes de un medio del álbum
+ *   --- v1.4.0: renovación automática del token de Facebook ---
+ *   GET  /api/facebook/token            estado del token (válido, días restantes)
+ *   POST /api/facebook/token/refresh    forzar renovación ahora
  */
 
 const fastify = require('fastify')({ logger: true });
-const { cfg, fuentesActivas } = require('./config');
+const fs = require('node:fs');
+const path = require('node:path');
+const { cfg, fuentesActivas, webhookEnabled } = require('./config');
 const store = require('./store');
 const { parseCommand } = require('./intent');
 const jobs = require('./jobs');
 const { toPackage } = require('./normalize');
 const ai = require('./ai');
 const legado = require('./adapter-legado');
+const momentos = require('./adapter-momentos');
+const wh = require('./whatsapp-webhook');
 const { parseExport } = require('./whatsapp-export');
+const tokenRefresh = require('./token-refresh');
 
-const VERSION = '1.1.2';
+const VERSION = '1.4.0';
+
+// Instancia perezosa del webhook (usa la config del entorno al primer uso).
+let _webhook = null;
+function getWebhook() {
+  if (!_webhook) {
+    _webhook = wh.createWebhook({
+      cfg: cfg(),
+      store,
+      momentos,
+      intent: require('./intent'),
+      jobs,
+      logger: fastify.log,
+    });
+  }
+  return _webhook;
+}
+
+// Parser JSON que conserva el cuerpo crudo para validar la firma de Meta.
+fastify.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+  req.rawBody = body || '';
+  try {
+    done(null, body ? JSON.parse(body) : {});
+  } catch (err) {
+    done(err);
+  }
+});
 
 const PRIVACIDAD_HTML = `<!DOCTYPE html>
 <html lang="es">
@@ -77,6 +121,9 @@ fastify.get('/', async () => {
     fuentes_configuradas: fuentesActivas(c),
     ia: ['heuristica-local'].concat(c.openaiKey ? ['openai'] : [], c.jev.key ? ['jev-decisiones'] : []).join('+'),
     adaptador_legado_vivo: legado.bridgeEnabled(c),
+    webhook_whatsapp: webhookEnabled(c)
+      ? 'activo (loteo multi-mensaje)'
+      : 'inactivo (configura WHATSAPP_TOKEN, PHONE_NUMBER_ID, VERIFY_TOKEN y APP_SECRET)',
     nota: 'No modifica el Asistente Puente en producción.',
   };
 });
@@ -89,7 +136,7 @@ fastify.get('/api/ayuda', async () => ({
     'busca mis fotos de facebook de los últimos 60 días',
     'cómo van mis extracciones',
   ],
-  nota_whatsapp: 'El historial de chats personales de WhatsApp llega en fase 2 (exportación manual del chat).',
+  nota_whatsapp: 'El historial de chats personales de WhatsApp llega en fase 2 (exportación manual del chat). Por el webhook /webhook (v1.3.0) sí puedes mandarle fotos y audios: los agrupa en álbumes para Momentos.',
 }));
 
 fastify.post('/api/command', async (req, reply) => {
@@ -173,6 +220,91 @@ fastify.post('/api/packages/:id/deliver', async (req, reply) => {
   return r;
 });
 
+// ---- v1.3.0: webhook de WhatsApp multi-mensaje (opt-in) ----
+
+// Verificación del webhook (la usa Meta al configurarlo)
+fastify.get('/webhook', async (req, reply) => {
+  const r = getWebhook().handleVerify(req.query || {});
+  return reply.code(r.status).send(r.body);
+});
+
+// Recepción de eventos: 200 inmediato, procesamiento en segundo plano
+// (igual que el Asistente Puente, para evitar reintentos de Meta).
+fastify.post('/webhook', async (req, reply) => {
+  const c = cfg();
+  if (!wh.signatureValid(req.rawBody, req.headers['x-hub-signature-256'], c.appSecret)) {
+    fastify.log.warn('Firma X-Hub-Signature-256 inválida en /webhook.');
+    return reply.code(401).send({ error: 'Firma inválida' });
+  }
+  reply.code(200).send({ ok: true });
+  getWebhook().ingestPayload(req.body).catch((err) => fastify.log.error(err, 'Error procesando webhook WhatsApp'));
+});
+
+// Álbumes y notas preparados por el webhook (para importar a Momentos)
+fastify.get('/api/whatsapp/albums', async (req) => ({
+  albums: await store.listWaAlbums({
+    waId: req.query.wa_id || undefined,
+    limit: parseInt(req.query.limit || '20', 10),
+  }),
+}));
+
+fastify.get('/api/whatsapp/albums/:id', async (req, reply) => {
+  const a = await store.getWaAlbum(req.params.id);
+  if (!a) return reply.code(404).send({ ok: false, error: 'álbum no existe' });
+  return a;
+});
+
+// Payload listo para importar a Momentos desde el chat con Muse
+// (acciones createalbum / uploadmedia / addtextitem).
+fastify.get('/api/whatsapp/albums/:id/import', async (req, reply) => {
+  const a = await store.getWaAlbum(req.params.id);
+  if (!a) return reply.code(404).send({ ok: false, error: 'álbum no existe' });
+  const proto = req.headers['x-forwarded-proto'] || 'http';
+  return momentos.importPayload(a, `${proto}://${req.headers.host}`);
+});
+
+fastify.post('/api/whatsapp/albums/:id/import', async (req, reply) => {
+  const a = await store.getWaAlbum(req.params.id);
+  if (!a) return reply.code(404).send({ ok: false, error: 'álbum no existe' });
+  const proto = req.headers['x-forwarded-proto'] || 'http';
+  const r = await momentos.deliver(a, cfg(), { baseUrl: `${proto}://${req.headers.host}` });
+  if (r.ok) {
+    a.import_status = 'entregado';
+    await store.saveWaAlbum(a);
+  }
+  return r;
+});
+
+// Bytes de un medio del álbum (para la importación asistida a Momentos).
+fastify.get('/api/whatsapp/media/:albumId/:file', async (req, reply) => {
+  const albumId = String(req.params.albumId || '').replace(/[^a-zA-Z0-9_]/g, '');
+  const file = path.basename(String(req.params.file || ''));
+  if (!albumId || !/^(photo|audio|text)_\d+\.[a-z0-9]+$/i.test(file)) {
+    return reply.code(400).send({ ok: false, error: 'archivo inválido' });
+  }
+  const full = path.join(__dirname, 'media', 'wa', albumId, file);
+  if (!fs.existsSync(full)) return reply.code(404).send({ ok: false, error: 'no encontrado' });
+  const mime = {
+    '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+    '.webp': 'image/webp', '.ogg': 'audio/ogg', '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4',
+  }[path.extname(file).toLowerCase()] || 'application/octet-stream';
+  return reply.type(mime).send(fs.readFileSync(full));
+});
+
+// ---- v1.4.0: estado y renovación del token de Facebook ----
+// Nunca exponen el valor del token: solo estado (válido, días restantes).
+
+fastify.get('/api/facebook/token', async () => {
+  const st = await tokenRefresh.ensureFreshToken({ store, cfg: cfg(), logger: fastify.log });
+  return { ok: st.ok, estado: st };
+});
+
+fastify.post('/api/facebook/token/refresh', async () => {
+  // Fuerza la renovación aunque falte mucho para el vencimiento.
+  const st = await tokenRefresh.ensureFreshToken({ store, cfg: cfg(), logger: fastify.log, marginDays: 36500 });
+  return { ok: st.ok && st.refreshed, estado: st };
+});
+
 // FASE 2: importación de exportación manual de WhatsApp
 fastify.post('/api/import/whatsapp-export', async (req, reply) => {
   const { text, chatName } = req.body || {};
@@ -194,6 +326,19 @@ fastify.post('/api/import/whatsapp-export', async (req, reply) => {
 async function start() {
   await store.init();
   const c = cfg();
+  // v1.4.0: chequeo inicial del token de Facebook (lo renueva si está
+  // dentro del margen) y re-chequeo diario. Nunca detiene el arranque.
+  try {
+    const st = await tokenRefresh.ensureFreshToken({ store, cfg: c, logger: fastify.log });
+    fastify.log.info({ facebook_token: st }, 'chequeo inicial del token de Facebook');
+  } catch (e) {
+    fastify.log.warn(e, 'chequeo inicial del token falló; se sigue con el token del entorno');
+  }
+  const iv = setInterval(() => {
+    tokenRefresh.ensureFreshToken({ store, cfg: cfg(), logger: fastify.log })
+      .catch((e) => fastify.log.warn(e, 'renovación programada del token de Facebook falló'));
+  }, 24 * 3600 * 1000);
+  if (iv.unref) iv.unref();
   await fastify.listen({ port: c.port, host: '0.0.0.0' });
   fastify.log.info(`nexo v${VERSION} en puerto ${c.port} (almacen: ${store.backend()}, dry_run: ${c.dryRun})`);
 }
@@ -202,4 +347,4 @@ if (require.main === module) {
   start().catch((e) => { fastify.log.error(e); process.exit(1); });
 }
 
-module.exports = { fastify, start };
+module.exports = { fastify, start, getWebhook };
