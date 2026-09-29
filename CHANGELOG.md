@@ -1,5 +1,15 @@
 # NEXO — Changelog
 
+## v1.7.2 — 29 de septiembre de 2026
+
+**Manual de usuario dentro de la app + correcciones de documentación.**
+
+- Nueva página `GET /manual` (`manual.html`, plano en raíz): manual de usuario completo, bilingüe ES/EN con selector de idioma persistente (localStorage, default ES), responsive, mismo estilo sobrio del editor. 13 secciones: qué es NEXO y cómo se opera (panel destacado: «no se instala, no es un contacto de WhatsApp: se usa desde el chat de Muse o desde /editor»), las dos puertas (Asistente Puente vs NEXO, con diagrama), puesta en marcha, editor de curaduría, importación de WhatsApp, búsqueda semántica y Q&A, puente con Taller, webhook (descrito como infraestructura opt-in hoy inactiva, no como «NEXO en WhatsApp»), renovación del token de Facebook, JEV, referencia API completa, pruebas y solución de problemas, límites honestos; enlace a `/privacidad`.
+- Enlace «📖 Manual / Ayuda» en el header del `/editor`; la raíz `/` reporta `manual: "/manual"`.
+- `README.md`: 7 correcciones — lista de archivos completa (`adapter-taller.js`, `editor.html`, `manual.html`; la lista incompleta tumbaba el deploy), eliminada la sección obsoleta «Fase 2 (no incluida en este despliegue)», `npm test` → 31 pruebas, `test-all.js` → 51 pruebas en ambos idiomas, tabla API con `GET /api/facebook/token`, `POST /api/facebook/token/refresh` y `deliver` con `{app:"taller"}`, English summary actualizado más allá de v1.3.0.
+- `INSTRUCCIONES.md`: versión 1.7.2 en el paso de prueba (ES+EN); nueva sección «Puente con Taller» ES+EN (deliver con `{app:"taller"}`, `/api/taller/status`, `/api/taller/ideas`, `/api/taller/chat`).
+- Nota documentada: el botón del editor solo envía a Legado Vivo (hardcodeado); a Taller se envía por API.
+
 ## v1.7.1 — 29 de septiembre de 2026
 
 **Fix del importador de WhatsApp (formato de iPhone en inglés).**

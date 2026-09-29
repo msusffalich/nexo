@@ -19,7 +19,7 @@ Desde la **v1.3.0**, además, puede recibir mensajes de **WhatsApp** (opt-in): s
 3. **Base de datos:** crea una base nueva en Neon y pega el connection string en `DATABASE_URL`.
 4. **Variables mínimas:** `FACEBOOK_USER_TOKEN` (Graph API Explorer, permisos `user_posts` + `user_photos`, extendido a 60 días).
 5. **Opcionales:** `INSTAGRAM_USER_ID`, `OPENAI_API_KEY` (mejores resúmenes + transcripción de audios + **búsqueda semántica y Q&A v1.5.0**; puedes copiar el valor del servicio asistente-puente en Render), `TYPESAFE_API_KEY` (decisiones JEV), `LEGADO_VIVO_URL` + `BRIDGE_API_KEY` + `LEGADO_FAMILY_ID` (entrega a Legado Vivo), `TALLER_URL` + `TALLER_BRIDGE_KEY` (puente con Taller v1.6.0: ideas, proyectos y chat con su asistente).
-6. **Prueba:** abre `https://tu-servicio.onrender.com/` → debe decir `"servicio": "nexo"` y `"version": "1.6.0"`.
+6. **Prueba:** abre `https://tu-servicio.onrender.com/` → debe decir `"servicio": "nexo"` y `"version": "1.7.2"`.
 
 ### Búsqueda semántica + Q&A con citas (v1.5.0)
 
@@ -44,6 +44,15 @@ Tu archivo familiar conversacional. Requiere `OPENAI_API_KEY` en Render (sin ell
 2. `POST /api/import/whatsapp-export` con `{ "text": "<contenido del .txt>", "chatName": "<nombre del chat>" }` → crea un paquete por mensaje.
 3. Los mensajes que son solo foto/video quedan marcados con `has_media` (las fotos reales se agregan por el otro carril: se guardan solas en tu carrete con «Save to Photos» activado).
 4. Formatos aceptados: iPhone en español (`[29/9/26, 13:23:28]`) o en inglés (`[9/29/26, 1:23:28 PM]`, con AM/PM y mes/día automáticos), y Android (`29/9/26, 13:23 - Nombre: mensaje`).
+
+### Puente con Taller (v1.6.0)
+
+NEXO habla con tu app Taller (estudio creativo) vía su API de puente. Requiere `TALLER_URL` + `TALLER_BRIDGE_KEY` en Render (sin ellas, el adaptador queda inactivo sin romper nada).
+
+1. **Enviar un paquete como idea:** `POST /api/packages/:id/deliver` con `{ "app": "taller" }` → crea la idea en Taller (idempotente por `requestKey` determinista); el paquete queda `entregado_taller`. En lote: `POST /api/packages/deliver-batch` con `"app": "taller"` (hasta 50).
+2. **Salud del puente:** `GET /api/taller/status`.
+3. **Crear idea directa:** `POST /api/taller/ideas` con `{ "title": "...", "hobby": "...", "body": "..." }`.
+4. **Chat con el asistente de Taller:** `POST /api/taller/chat` con `{ "message": "...", "mode": "chat" }` (modos `chat`/`review`/`plan`; solo texto).
 
 ### Renovación automática del token de Facebook (v1.4.0)
 
@@ -103,7 +112,7 @@ Since **v1.3.0** it can also receive **WhatsApp** messages (opt-in): send severa
 3. **Database:** create a new Neon database and paste the connection string into `DATABASE_URL`.
 4. **Minimum vars:** `FACEBOOK_USER_TOKEN` (Graph API Explorer, `user_posts` + `user_photos` scopes, extended to 60 days).
 5. **Optional:** `INSTAGRAM_USER_ID`, `OPENAI_API_KEY` (better summaries + audio transcription + **semantic search & Q&A v1.5.0**; you can copy the value from the asistente-puente service in Render), `TYPESAFE_API_KEY` (JEV decisions), `LEGADO_VIVO_URL` + `BRIDGE_API_KEY` + `LEGADO_FAMILY_ID` (Legado Vivo delivery), `TALLER_URL` + `TALLER_BRIDGE_KEY` (Taller bridge v1.6.0: ideas, projects and chat with its assistant).
-6. **Test:** open `https://your-service.onrender.com/` → it must say `"servicio": "nexo"` and `"version": "1.6.0"`.
+6. **Test:** open `https://your-service.onrender.com/` → it must say `"servicio": "nexo"` and `"version": "1.7.2"`.
 
 ### Semantic search + Q&A with citations (v1.5.0)
 
@@ -128,6 +137,15 @@ Your conversational family archive. Requires `OPENAI_API_KEY` in Render (without
 2. `POST /api/import/whatsapp-export` with `{ "text": "<.txt contents>", "chatName": "<chat name>" }` → one package per message.
 3. Photo/video-only messages are flagged with `has_media` (real photos arrive via the other lane: they save to your camera roll automatically with "Save to Photos" on).
 4. Accepted formats: iPhone in Spanish (`[29/9/26, 13:23:28]`) or English (`[9/29/26, 1:23:28 PM]`, with AM/PM and auto month/day detection), and Android (`29/9/26, 13:23 - Name: message`).
+
+### Taller bridge (v1.6.0)
+
+NEXO talks to your Taller app (creative studio) through its bridge API. Requires `TALLER_URL` + `TALLER_BRIDGE_KEY` on Render (without them, the adapter stays inactive without breaking anything).
+
+1. **Deliver a package as an idea:** `POST /api/packages/:id/deliver` with `{ "app": "taller" }` → creates the idea in Taller (idempotent via deterministic `requestKey`); the package becomes `entregado_taller`. In batch: `POST /api/packages/deliver-batch` with `"app": "taller"` (up to 50).
+2. **Bridge health:** `GET /api/taller/status`.
+3. **Create an idea directly:** `POST /api/taller/ideas` with `{ "title": "...", "hobby": "...", "body": "..." }`.
+4. **Chat with Taller's assistant:** `POST /api/taller/chat` with `{ "message": "...", "mode": "chat" }` (modes `chat`/`review`/`plan`; text only).
 
 ### Automatic Facebook token renewal (v1.4.0)
 

@@ -16,5 +16,5 @@
     "test": "node test/run-tests.js",
     "test:all": "node test-all.js"
   },
-  "version": "1.7.1"
+  "version": "1.7.2"
 }

@@ -21,6 +21,7 @@
  *   POST /api/packages/:id/deliver {app}  entregar a app consumidora
  *   POST /api/packages/deliver-batch {ids[], app, edits?}  entrega en lote (v1.7.0)
  *   GET  /editor                        editor visual de curaduría (v1.7.0)
+ *   GET  /manual                        manual de usuario dentro de la app (v1.7.2)
  *   POST /api/import/whatsapp-export {text, chatName}  (FASE 2)
  *   GET  /api/ayuda                     ejemplos de comandos
  *   GET  /privacidad                    política de privacidad (requerida por Meta)
@@ -61,7 +62,7 @@ const { parseExport } = require('./whatsapp-export');
 const tokenRefresh = require('./token-refresh');
 const embeddings = require('./embeddings');
 
-const VERSION = '1.7.1';
+const VERSION = '1.7.2';
 
 // Instancia perezosa del webhook (usa la config del entorno al primer uso).
 let _webhook = null;
@@ -127,6 +128,12 @@ fastify.get('/editor', async (req, reply) => {
   reply.type('text/html; charset=utf-8').send(html);
 });
 
+// ---- v1.7.2: manual de usuario dentro de la app ----
+fastify.get('/manual', async (req, reply) => {
+  const html = await fs.promises.readFile(path.join(__dirname, 'manual.html'), 'utf8');
+  reply.type('text/html; charset=utf-8').send(html);
+});
+
 fastify.get('/', async () => {
   const c = cfg();
   return {
@@ -141,6 +148,7 @@ fastify.get('/', async () => {
     adaptador_legado_vivo: legado.bridgeEnabled(c),
     adaptador_taller: taller.bridgeEnabled(c),
     editor_curaduria: '/editor',
+    manual: '/manual',
     webhook_whatsapp: webhookEnabled(c)
       ? 'activo (loteo multi-mensaje)'
       : 'inactivo (configura WHATSAPP_TOKEN, PHONE_NUMBER_ID, VERIFY_TOKEN y APP_SECRET)',

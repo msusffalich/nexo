@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual — NEXO</title>
+<style>
+:root{
+  --bg:#f4f6fb; --card:#fff; --ink:#1c2333; --muted:#68738a;
+  --accent:#2563eb; --accent-d:#1d4ed8; --ok:#15803d; --warn:#b45309; --bad:#b91c1c;
+  --line:#e3e8f2; --chip:#eef2ff;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.6}
+header.top{position:sticky;top:0;z-index:20;background:#101828;color:#fff;padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+header.top h1{font-size:1.15rem;margin:0;font-weight:700}
+header.top .sub{font-size:.8rem;color:#b9c2d8}
+.langtoggle{margin-left:auto;display:flex;gap:6px}
+.langtoggle button{font-size:.82rem;font-weight:700;border:1px solid #334155;background:transparent;color:#cbd5e1;border-radius:999px;padding:7px 14px;cursor:pointer}
+.langtoggle button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+main{max-width:900px;margin:0 auto;padding:22px 16px 80px}
+section.block{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin-bottom:18px}
+section.block h2{margin:0 0 10px;font-size:1.25rem;color:#101828;border-bottom:2px solid var(--chip);padding-bottom:8px}
+section.block h3{margin:18px 0 8px;font-size:1.02rem;color:#1e3a8a}
+p{margin:10px 0}
+ul,ol{margin:8px 0;padding-left:22px}
+li{margin:5px 0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.85em;background:#f1f5f9;padding:2px 6px;border-radius:6px;color:#0f172a}
+pre{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:14px 16px;overflow-x:auto;font-size:.82rem;line-height:1.55}
+pre code{background:none;color:inherit;padding:0}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:.88rem}
+th,td{text-align:left;padding:9px 10px;border:1px solid var(--line);vertical-align:top}
+th{background:#f1f5f9;font-size:.8rem;text-transform:uppercase;letter-spacing:.03em;color:#334155}
+.panel{background:#eff6ff;border:2px solid var(--accent);border-radius:14px;padding:16px 20px;margin:14px 0}
+.panel b.t{display:block;font-size:1rem;color:#1d4ed8;margin-bottom:6px}
+.note{background:#fffbeb;border:1px solid #fcd34d;border-left:5px solid var(--warn);border-radius:10px;padding:12px 16px;margin:14px 0;font-size:.92rem}
+.note b{color:var(--warn)}
+.okbox{background:#f0fdf4;border:1px solid #86efac;border-left:5px solid var(--ok);border-radius:10px;padding:12px 16px;margin:14px 0;font-size:.92rem}
+.diagram{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;margin:14px 0}
+.door{flex:1 1 220px;background:#f8fafc;border:2px solid var(--line);border-radius:12px;padding:14px;text-align:center}
+.door h4{margin:0 0 6px;font-size:.95rem}
+.door p{font-size:.82rem;color:var(--muted);margin:6px 0}
+.door .emoji{font-size:1.8rem}
+.darrow{align-self:center;font-size:1.6rem;color:var(--accent);font-weight:700}
+.dest{flex:1 1 100%;background:#ecfdf5;border:2px solid var(--ok);border-radius:12px;padding:12px;text-align:center;font-weight:700;color:#065f46;margin-top:4px}
+.toc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 22px;margin-bottom:18px}
+.toc h2{font-size:1rem;margin:0 0 8px}
+.toc ol{margin:6px 0}
+.toc a{color:var(--accent);text-decoration:none}
+.toc a:hover{text-decoration:underline}
+.kv{display:grid;grid-template-columns:150px 1fr;gap:6px 12px;font-size:.9rem;margin:10px 0}
+.kv dt{font-weight:700;color:#334155}
+.kv dd{margin:0}
+footer{text-align:center;color:var(--muted);font-size:.82rem;padding:20px}
+footer a{color:var(--accent)}
+@media (max-width:560px){
+  header.top h1{font-size:1rem}
+  section.block{padding:16px}
+  .kv{grid-template-columns:1fr}
+  .kv dt{margin-top:8px}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>📖 <span data-es="Manual de NEXO" data-en="NEXO Manual">Manual de NEXO</span></h1>
+  <span class="sub">v1.7.2</span>
+  <div class="langtoggle" role="group" aria-label="Idioma / Language">
+    <button id="btnEs" class="active" onclick="setLang('es')">ES</button>
+    <button id="btnEn" onclick="setLang('en')">EN</button>
+  </div>
+</header>
+<main>
+
+<!-- ==================== ESPAÑOL ==================== -->
+<div id="lang-es">
+
+<div class="toc">
+  <h2>Contenido</h2>
+  <ol>
+    <li><a href="#es-que">Qué es NEXO (y qué no es)</a></li>
+    <li><a href="#es-puertas">Las dos puertas: Asistente Puente vs NEXO</a></li>
+    <li><a href="#es-setup">Puesta en marcha</a></li>
+    <li><a href="#es-editor">Editor de curaduría</a></li>
+    <li><a href="#es-waimport">Importar un chat de WhatsApp</a></li>
+    <li><a href="#es-search">Búsqueda semántica y Q&amp;A</a></li>
+    <li><a href="#es-taller">Puente con Taller</a></li>
+    <li><a href="#es-webhook">Webhook de WhatsApp multi-mensaje</a></li>
+    <li><a href="#es-token">Renovación automática del token de Facebook</a></li>
+    <li><a href="#es-jev">JEV — decisiones con IA</a></li>
+    <li><a href="#es-api">Referencia de la API</a></li>
+    <li><a href="#es-trouble">Pruebas y solución de problemas</a></li>
+    <li><a href="#es-limits">Límites honestos</a></li>
+  </ol>
+</div>
+
+<section class="block" id="es-que">
+<h2>1. Qué es NEXO (y qué no es)</h2>
+<div class="panel">
+  <b class="t">⭐ Cómo se usa NEXO</b>
+  NEXO <b>no se instala, no es una app de tu teléfono y no es un contacto de WhatsApp</b>.
+  Solo existe como <b>servicio web</b> con la página <code>/editor</code> y una API.
+  Se opera de dos formas: <b>(a)</b> desde el <b>chat de Muse</b> con comandos en lenguaje natural
+  («extrae mis fotos de facebook de esta semana»), o <b>(b)</b> directo en el <b>navegador</b>
+  (<code>/editor</code>, <code>/api/…</code>). No hay nada que descargar ni ningún número al que escribirle.
+</div>
+<p><b>NEXO</b> es tu hub personal de extracción de contenidos: extrae fotos, posts y videos de <b>tus propias cuentas</b> de Facebook e Instagram (vía la API oficial de Meta), o de exportaciones de chats de WhatsApp que subes manualmente, los normaliza en <b>paquetes estándar</b> y los deja listos para curar y enviar en lote a tus apps.</p>
+<h3>Qué NO es / qué NO hace</h3>
+<ul>
+  <li><b>No es un bot de WhatsApp.</b> No tiene número, no recibe tus mensajes, no aparece en tus chats. La captura por WhatsApp la hace el <b>Asistente Puente</b> (+1 555-153-9713).</li>
+  <li><b>No modifica el Asistente Puente en producción.</b> Son servicios separados, con repos y deploys separados.</li>
+  <li><b>No escribe recuerdos solo.</b> Todo lo que sale de NEXO hacia Legado Vivo o Taller entra como <b>borrador</b>; tú decides qué se envía y lo completas allá.</li>
+  <li><b>No accede a cuentas ajenas.</b> Solo tus propias cuentas de Facebook e Instagram, con tokens que tú autorizas.</li>
+  <li><b>No da acceso a tus apps privadas de Muse</b> (Momentos, Recetas, etc.). Esas se siguen usando desde Muse; NEXO las <b>alimenta</b> (prepara payloads para Momentos, manda borradores a Legado Vivo e ideas a Taller).</li>
+</ul>
+<h3>El paquete estándar</h3>
+<p>Cada contenido extraído se convierte en un paquete: <code>{package_id, source, author, created_at, text, media[], metadata}</code>. NEXO lo enriquece (categoría, resumen, etiquetas, <code>dedupe_key</code> para no guardar dos veces lo mismo) y lo guarda con estado <code>listo</code> hasta que lo cures y envíes.</p>
+</section>
+
+<section class="block" id="es-puertas">
+<h2>2. Las dos puertas: Asistente Puente vs NEXO</h2>
+<p>El ecosistema tiene <b>dos puertas al mismo destino</b> (Legado Vivo). No compiten; cada una es buena en lo suyo:</p>
+<div class="diagram">
+  <div class="door">
+    <div class="emoji">💬</div>
+    <h4>Puerta 1 — Asistente Puente</h4>
+    <p><b>Captura en el momento, uno a la vez.</b><br>Foto + nota de voz por WhatsApp → borrador en Legado Vivo.</p>
+    <p>Para fotos sueltas del día a día.</p>
+  </div>
+  <div class="door">
+    <div class="emoji">🗂️</div>
+    <h4>Puerta 2 — NEXO</h4>
+    <p><b>Extracción y curaduría en lote.</b><br>Facebook / Instagram / export de WhatsApp → paquetes → editor → envío en lote.</p>
+    <p>Para volumen: semanas de posts, chats enteros.</p>
+  </div>
+  <div class="dest">🏠 Destino: Legado Vivo (borradores «Pendiente de completar») · Taller (ideas)</div>
+</div>
+<div class="note"><b>Importante:</b> no existe un tercer carril donde se pasen fotos por el chat de Muse y NEXO arme paquetes con esas fotos. Las fotos viajan por la Puerta 1 (Asistente Puente) o se suben directo en la web de Legado Vivo.</div>
+</section>
+
+<section class="block" id="es-setup">
+<h2>3. Puesta en marcha</h2>
+<h3>GitHub — archivos 100% planos en la raíz</h3>
+<p>Crea un repo (p. ej. <code>nexo</code>) y sube estos archivos <b>planos en la raíz</b> (sin subcarpetas de código: el upload web de GitHub las pierde y tumba el deploy):</p>
+<p><code>package.json</code>, <code>index.js</code>, <code>config.js</code>, <code>store.js</code>, <code>intent.js</code>, <code>jobs.js</code>, <code>normalize.js</code>, <code>ai.js</code>, <code>jev.js</code>, <code>embeddings.js</code>, <code>cli.js</code>, <code>whatsapp-export.js</code>, <code>whatsapp-webhook.js</code>, <code>token-refresh.js</code>, <code>source-facebook.js</code>, <code>source-instagram.js</code>, <code>adapter-legado.js</code>, <code>adapter-momentos.js</code>, <code>adapter-taller.js</code>, <code>editor.html</code>, <code>manual.html</code>, <code>test-all.js</code>, <code>render.yaml</code>, <code>.env.example</code>, <code>.gitignore</code>, <code>README.md</code>, <code>INSTRUCCIONES.md</code>, <code>CHANGELOG.md</code>, más las carpetas no-críticas <code>test/</code>, <code>media/</code>, <code>assets/</code>.</p>
+<p>No subas <code>node_modules/</code> ni ningún <code>.env</code>.</p>
+<h3>Render + base de datos</h3>
+<ol>
+  <li>New → Web Service → conecta el repo. Build: <code>npm install</code> · Start: <code>npm start</code> · Plan Free. (O Blueprint con <code>render.yaml</code>.)</li>
+  <li>Crea una base nueva en Neon (separada de la del Asistente Puente) y pega el connection string en <code>DATABASE_URL</code>. Sin ella, el servicio arranca pero los datos no sobreviven reinicios.</li>
+</ol>
+<h3>Variables</h3>
+<table>
+<tr><th>Variable</th><th>Para qué</th><th>Requerida</th></tr>
+<tr><td><code>DATABASE_URL</code></td><td>PostgreSQL en Neon; persistencia de paquetes</td><td>Sí (recomendada)</td></tr>
+<tr><td><code>FACEBOOK_USER_TOKEN</code></td><td>Token de 60 días de tu app Consumer «NEXO Personal» (permisos <code>user_posts</code> + <code>user_photos</code>). <b>Nunca</b> en código ni chats</td><td>Sí, para Facebook</td></tr>
+<tr><td><code>FACEBOOK_APP_ID</code> / <code>FACEBOOK_APP_SECRET</code></td><td>Auto-renovación del token (v1.4.0)</td><td>Opcional</td></tr>
+<tr><td><code>INSTAGRAM_USER_ID</code></td><td>Solo si tu cuenta de Instagram es empresa/creador</td><td>Opcional</td></tr>
+<tr><td><code>OPENAI_API_KEY</code></td><td>Mejores resúmenes, transcripción de audios, búsqueda semántica y Q&amp;A</td><td>Opcional</td></tr>
+<tr><td><code>TYPESAFE_API_KEY</code> (alias <code>JEV_API_KEY</code>)</td><td>Decisiones JEV</td><td>Opcional</td></tr>
+<tr><td><code>LEGADO_VIVO_URL</code> / <code>BRIDGE_API_KEY</code> / <code>LEGADO_FAMILY_ID</code></td><td>Entrega de paquetes a Legado Vivo como borradores</td><td>Opcional</td></tr>
+<tr><td><code>TALLER_URL</code> / <code>TALLER_BRIDGE_KEY</code></td><td>Puente con Taller (v1.6.0)</td><td>Opcional</td></tr>
+<tr><td><code>WHATSAPP_TOKEN</code> / <code>PHONE_NUMBER_ID</code> / <code>VERIFY_TOKEN</code> / <code>APP_SECRET</code></td><td>Webhook propio de WhatsApp (opt-in, hoy inactivo)</td><td>Opcional</td></tr>
+<tr><td><code>DRY_RUN</code></td><td><code>true</code> = modo prueba sin llamadas reales</td><td>Opcional</td></tr>
+</table>
+<h3>Prueba</h3>
+<p>Abre <code>https://tu-servicio.onrender.com/</code> → debe decir <code>"servicio": "nexo"</code> y <code>"version": "1.7.2"</code>. Luego abre <code>/editor</code> y <code>/manual</code>.</p>
+</section>
+
+<section class="block" id="es-editor">
+<h2>4. Editor de curaduría</h2>
+<ol>
+  <li>Abre <code>https://tu-servicio.onrender.com/editor</code>: verás tus paquetes en tarjetas con miniatura, fuente, fecha, autor y estado.</li>
+  <li><b>Filtra</b> por fuente (Facebook/Instagram/WhatsApp), estado o texto; <b>selecciona</b> varios con un clic (o el checkbox).</li>
+  <li><b>Retoca</b> cada uno con ✏️: ajusta el título y el texto tal como quieres que lleguen a Legado Vivo (los retoques se guardan en el paquete).</li>
+  <li>Pulsa <b>«Enviar a Legado Vivo»</b>: confirma y el lote viaja como borradores («Pendiente de completar»). Verás ✓ por cada enviado y ✗ con el motivo si alguno falla. Hasta <b>50 paquetes por llamada</b>.</li>
+</ol>
+<h3>Estados</h3>
+<ul>
+  <li><code>listo</code> — paquete curable, aún no enviado.</li>
+  <li><code>entregado_legado</code> — enviado a Legado Vivo como borrador.</li>
+  <li><code>entregado_taller</code> — enviado a Taller como idea (llega por API; ver sección 7).</li>
+</ul>
+<div class="note"><b>Nota explícita:</b> el botón del editor está programado para enviar <b>solo a Legado Vivo</b>. Para enviar paquetes a <b>Taller</b> usa la API: <code>POST /api/packages/:id/deliver</code> con <code>{ "app": "taller" }</code>, o <code>POST /api/packages/deliver-batch</code> con <code>"app": "taller"</code>.</div>
+<p>La entrega es <b>idempotente</b>: cada paquete viaja con <code>draftId: nexo-&lt;package_id&gt;</code>, así que reenviar no duplica borradores.</p>
+</section>
+
+<section class="block" id="es-waimport">
+<h2>5. Importar un chat de WhatsApp</h2>
+<ol>
+  <li>En tu iPhone: abre el chat → nombre del chat → <b>Exportar chat</b> → <b>Sin archivos</b> → envíate el <code>.txt</code>.</li>
+  <li><code>POST /api/import/whatsapp-export</code> con <code>{ "text": "&lt;contenido del .txt&gt;", "chatName": "&lt;nombre del chat&gt;" }</code> → crea <b>un paquete por mensaje</b>.</li>
+  <li>Los paquetes aparecen en el <code>/editor</code> listos para curar y enviar.</li>
+</ol>
+<h3>Formatos aceptados</h3>
+<table>
+<tr><th>Formato</th><th>Ejemplo</th></tr>
+<tr><td>iPhone en español</td><td><code>[29/9/26, 13:23:28] Nombre: mensaje</code></td></tr>
+<tr><td>iPhone en inglés (AM/PM)</td><td><code>[9/29/26, 1:23:28 PM] Nombre: mensaje</code> — convierte 12h→24h y detecta mes/día automáticamente</td></tr>
+<tr><td>Android</td><td><code>29/9/26, 13:23 - Nombre: mensaje</code></td></tr>
+</table>
+<p>Los mensajes que son solo foto/video (<code>&lt;imagen omitida&gt;</code>, <code>&lt;video omitido&gt;</code>, <code>&lt;Mensaje de album&gt;</code>) se marcan con <code>has_media</code>. Reimportar el mismo <code>.txt</code> <b>no duplica</b> (cada mensaje conserva su <code>source_id</code>).</p>
+<div class="note"><b>Límite honesto:</b> NEXO <b>no une</b> las fotos de tu carrete con sus placeholders del <code>.txt</code>. La exportación sin archivos solo trae texto; las fotos reales viajan por el otro carril (Asistente Puente por WhatsApp, o se suben directo en Legado Vivo). Este importador sirve para chats donde <b>el texto es el recuerdo</b> (historias, anécdotas, noticias familiares).</div>
+</section>
+
+<section class="block" id="es-search">
+<h2>6. Búsqueda semántica y Q&amp;A</h2>
+<p>Requiere <code>OPENAI_API_KEY</code> en Render (sin ella, estas rutas responden 503 y nada más cambia).</p>
+<ul>
+  <li>Cada paquete se <b>vectoriza solo</b> al guardarse (OpenAI <code>text-embedding-3-small</code>, pgvector en PostgreSQL). Si activas la key después, vectoriza los pendientes con <code>POST /api/embeddings/backfill</code> (lotes de 20).</li>
+  <li><b>Busca por significado:</b> <code>GET /api/search?q=atardecer en la playa&amp;limit=8</code> → paquetes ordenados por similitud, con <code>score</code>, <code>extracto</code>, fuente y fecha.</li>
+  <li><b>Pregunta en lenguaje natural:</b> <code>POST /api/qa</code> con <code>{"question": "¿cuándo fuimos a la playa con Dante?"}</code> → respuesta breve que usa <b>solo</b> tus recuerdos y cita cada dato como <code>[1]</code>, <code>[2]</code> (con <code>package_id</code>, fuente, fecha y enlace). Si no hay nada, lo dice en vez de inventar.</li>
+</ul>
+</section>
+
+<section class="block" id="es-taller">
+<h2>7. Puente con Taller</h2>
+<p>NEXO habla con tu app Taller (estudio creativo) vía su API de puente (<code>/api/bridge/*</code> con header <code>x-bridge-key</code>). Requiere <code>TALLER_URL</code> + <code>TALLER_BRIDGE_KEY</code> en Render; sin ellas el adaptador queda inactivo sin romper nada (la raíz <code>/</code> reporta <code>adaptador_taller</code>).</p>
+<ul>
+  <li><code>POST /api/packages/:id/deliver</code> con <code>{ "app": "taller" }</code> → crea la <b>idea</b> en Taller (idempotente por <code>requestKey</code> determinista); el paquete queda <code>entregado_taller</code>.</li>
+  <li><code>POST /api/packages/deliver-batch</code> con <code>"app": "taller"</code> → lo mismo en lote (hasta 50).</li>
+  <li><code>GET /api/taller/status</code> → salud del puente.</li>
+  <li><code>POST /api/taller/ideas</code> con <code>{ title, hobby?, body? }</code> → crear idea.</li>
+  <li><code>POST /api/taller/chat</code> con <code>{ message, mode? }</code> → chatear con el asistente de Taller (modos <code>chat</code>/<code>review</code>/<code>plan</code>; solo texto).</li>
+</ul>
+</section>
+
+<section class="block" id="es-webhook">
+<h2>8. Webhook de WhatsApp multi-mensaje</h2>
+<div class="note"><b>Infraestructura opt-in, hoy inactiva:</b> esto <b>no</b> es «NEXO en WhatsApp». Es un webhook técnico opcional para un caso futuro (cuando Meta apruebe la verificación del negocio). Sin <code>WHATSAPP_TOKEN</code>, <code>PHONE_NUMBER_ID</code>, <code>VERIFY_TOKEN</code> y <code>APP_SECRET</code>, el webhook rechaza los eventos y NEXO funciona igual. Se configuraría con una app de Meta <b>aparte</b> de la del Asistente Puente.</div>
+<p>Si algún día se activa: agrupa mensajes consecutivos del mismo remitente en lotes (se cierra con 30 s de pausa o al tope de 3 min), detecta triggers (<code>photo_relatos</code>, <code>album_caption</code>, <code>multi_photo_album</code>, <code>audio_note</code>…), las fotos seguidas se juntan en un álbum para Momentos y cada nota de voz queda como transcripción separada (Whisper si hay <code>OPENAI_API_KEY</code>).</p>
+</section>
+
+<section class="block" id="es-token">
+<h2>9. Renovación automática del token de Facebook</h2>
+<p>El token de usuario de Facebook vive 60 días. Si configuras <code>FACEBOOK_APP_ID</code> y <code>FACEBOOK_APP_SECRET</code> (de tu app «NEXO Personal» en Meta for Developers → Configuración → Información básica), NEXO verifica la vigencia al arrancar y cada 24 h, y <b>renueva el token solo</b> cuando vence dentro de 7 días (<code>FB_TOKEN_REFRESH_MARGIN_DAYS</code>).</p>
+<ul>
+  <li>Consulta el estado en <code>GET /api/facebook/token</code> (válido, días restantes, fuente; <b>nunca</b> muestra el valor del token).</li>
+  <li>Para forzar una renovación: <code>POST /api/facebook/token/refresh</code>.</li>
+</ul>
+</section>
+
+<section class="block" id="es-jev">
+<h2>10. JEV — decisiones con IA</h2>
+<p>Con <code>TYPESAFE_API_KEY</code> (alias <code>JEV_API_KEY</code>), JEV (TypeSafe AI) actúa como cerebro de decisiones rápidas por paquete. <b>JEV no genera texto</b>: no escribe resúmenes ni etiquetas.</p>
+<ul>
+  <li><code>choice</code> → categoría temática con confianza (si ≥ 0.75 reemplaza la heurística).</li>
+  <li><code>score</code> → puntaje de relevancia (0–100).</li>
+  <li><code>noul</code> → puertas binarias: ¿duplicado probable? ¿entrega segura?</li>
+</ul>
+<p><b>Confianza baja → revisión humana, no automatización:</b> el paquete queda marcado en <code>metadata.revision_humana</code> con el motivo. Sin key, o si el servicio falla, el paquete conserva sus heurísticas locales y sigue su curso.</p>
+</section>
+
+<section class="block" id="es-api">
+<h2>11. Referencia de la API</h2>
+<table>
+<tr><th>Método</th><th>Ruta</th><th>Para qué</th></tr>
+<tr><td>GET</td><td><code>/</code></td><td>Estado del servicio (versión, adaptadores, flags)</td></tr>
+<tr><td>GET</td><td><code>/manual</code></td><td>Este manual (página web)</td></tr>
+<tr><td>GET</td><td><code>/editor</code></td><td>Editor visual de curaduría</td></tr>
+<tr><td>GET</td><td><code>/privacidad</code></td><td>Política de privacidad (requerida por Meta)</td></tr>
+<tr><td>GET</td><td><code>/api/ayuda</code></td><td>Ejemplos de comandos</td></tr>
+<tr><td>POST</td><td><code>/api/command</code> <code>{text}</code></td><td>Comando en lenguaje natural</td></tr>
+<tr><td>POST</td><td><code>/api/jobs</code> <code>{source,kind,from,to}</code></td><td>Trabajo directo</td></tr>
+<tr><td>GET</td><td><code>/api/jobs</code> · <code>/api/jobs/:id</code></td><td>Ver trabajos</td></tr>
+<tr><td>GET</td><td><code>/api/packages</code> · <code>/api/packages/:id</code></td><td>Ver paquetes</td></tr>
+<tr><td>POST</td><td><code>/api/packages/:id/deliver</code> <code>{app:"legado-vivo"|"taller"}</code></td><td>Enviar un paquete</td></tr>
+<tr><td>POST</td><td><code>/api/packages/deliver-batch</code> <code>{ids[],app,edits?}</code></td><td>Enviar hasta 50 en lote</td></tr>
+<tr><td>POST</td><td><code>/api/import/whatsapp-export</code> <code>{text,chatName}</code></td><td>Importar exportación de WhatsApp</td></tr>
+<tr><td>GET</td><td><code>/api/facebook/token</code></td><td>Estado del token (nunca muestra el valor)</td></tr>
+<tr><td>POST</td><td><code>/api/facebook/token/refresh</code></td><td>Forzar renovación del token</td></tr>
+<tr><td>GET</td><td><code>/api/taller/status</code></td><td>Salud del puente con Taller</td></tr>
+<tr><td>POST</td><td><code>/api/taller/ideas</code> <code>{title,hobby?,body?}</code></td><td>Crear idea en Taller</td></tr>
+<tr><td>POST</td><td><code>/api/taller/chat</code> <code>{message,mode?}</code></td><td>Chat con el asistente de Taller</td></tr>
+<tr><td>GET</td><td><code>/api/search?q=…</code></td><td>Búsqueda semántica (requiere <code>OPENAI_API_KEY</code>)</td></tr>
+<tr><td>POST</td><td><code>/api/qa</code> <code>{question}</code></td><td>Q&amp;A con citas (requiere <code>OPENAI_API_KEY</code>)</td></tr>
+<tr><td>POST</td><td><code>/api/embeddings/backfill</code></td><td>Vectorizar pendientes (lotes de 20)</td></tr>
+<tr><td>GET/POST</td><td><code>/webhook</code></td><td>Webhook de WhatsApp (opt-in; requiere firma)</td></tr>
+<tr><td>GET</td><td><code>/api/whatsapp/albums…</code></td><td>Álbumes/notas preparados para Momentos</td></tr>
+</table>
+</section>
+
+<section class="block" id="es-trouble">
+<h2>12. Pruebas y solución de problemas</h2>
+<ul>
+  <li><code>npm test</code> → 31 pruebas (unitarias + E2E en DRY_RUN, sin credenciales reales).</li>
+  <li><code>node test-all.js</code> → 51 pruebas (webhook, token-refresh, embeddings, E2E del loteo multi-mensaje).</li>
+  <li><b>Deploy roto tras subir el ZIP:</b> verifica que los archivos estén <b>planos en la raíz</b> del repo (sin subcarpetas de código) y que <code>package.json</code> sea el de NEXO. Revisa el log de Render: <code>Cannot find module</code> casi siempre es un archivo fuera de lugar.</li>
+  <li><b>La raíz no muestra la versión nueva:</b> haz <b>Manual Deploy → Deploy latest commit</b> en Render y espera a que termine.</li>
+  <li><b>Importación de WhatsApp devuelve 0 mensajes:</b> revisa que el <code>.txt</code> se exportó <b>sin archivos</b> y que el formato sea iOS o Android (ver sección 5).</li>
+  <li><b>El lote a Legado Vivo falla:</b> verifica <code>LEGADO_VIVO_URL</code>, <code>BRIDGE_API_KEY</code> (la misma de Railway) y <code>LEGADO_FAMILY_ID</code> en Render.</li>
+  <li><b>Los paquetes no se pueden borrar todavía</b> desde el editor: simplemente no los selecciones para el envío.</li>
+</ul>
+</section>
+
+<section class="block" id="es-limits">
+<h2>13. Límites honestos</h2>
+<ul>
+  <li><b>WhatsApp no tiene API oficial para leer tus chats personales.</b> La vía es la exportación manual del chat.</li>
+  <li><b>Solo tus propias cuentas</b> de Facebook e Instagram, y lo que la API oficial permite. Instagram exige cuenta empresa/creador.</li>
+  <li>El importador de WhatsApp <b>no une fotos con placeholders</b> (ver sección 5).</li>
+  <li>El botón del editor <b>solo envía a Legado Vivo</b>; a Taller se envía por API (ver sección 4).</li>
+  <li>Momentos no expone API pública: los álbumes se importan desde el chat con Muse.</li>
+  <li>Los tokens <b>nunca</b> se pegan en chats ni en código: viven solo como variables de entorno en Render.</li>
+</ul>
+<p>Privacidad: <a href="/privacidad">política de privacidad</a> · Contacto: Miguel Susffalich Tomasevich</p>
+</section>
+
+</div><!-- /lang-es -->
+<!-- ==================== ENGLISH ==================== -->
+<div id="lang-en" style="display:none">
+
+<div class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#en-what">What NEXO is (and isn't)</a></li>
+    <li><a href="#en-doors">The two doors: Asistente Puente vs NEXO</a></li>
+    <li><a href="#en-setup">Setup</a></li>
+    <li><a href="#en-editor">Curation editor</a></li>
+    <li><a href="#en-waimport">Importing a WhatsApp chat</a></li>
+    <li><a href="#en-search">Semantic search &amp; Q&amp;A</a></li>
+    <li><a href="#en-taller">Taller bridge</a></li>
+    <li><a href="#en-webhook">Multi-message WhatsApp webhook</a></li>
+    <li><a href="#en-token">Automatic Facebook token renewal</a></li>
+    <li><a href="#en-jev">JEV — AI decisions</a></li>
+    <li><a href="#en-api">API reference</a></li>
+    <li><a href="#en-trouble">Testing &amp; troubleshooting</a></li>
+    <li><a href="#en-limits">Honest limits</a></li>
+  </ol>
+</div>
+
+<section class="block" id="en-what">
+<h2>1. What NEXO is (and isn't)</h2>
+<div class="panel">
+  <b class="t">⭐ How you use NEXO</b>
+  NEXO <b>is not installed, is not a phone app, and is not a WhatsApp contact</b>.
+  It only exists as a <b>web service</b> with the <code>/editor</code> page and an API.
+  You operate it two ways: <b>(a)</b> from the <b>Muse chat</b> with natural-language commands
+  ("extract my facebook photos from this week"), or <b>(b)</b> directly in the <b>browser</b>
+  (<code>/editor</code>, <code>/api/…</code>). Nothing to download, no number to message.
+</div>
+<p><b>NEXO</b> is your personal content-extraction hub: it pulls photos, posts and videos from <b>your own</b> Facebook and Instagram accounts (via Meta's official API), or from WhatsApp chat exports you upload manually, normalizes them into <b>standard packages</b>, and gets them ready for batch curation and delivery to your apps.</p>
+<h3>What it is NOT / does NOT do</h3>
+<ul>
+  <li><b>Not a WhatsApp bot.</b> No number, doesn't receive your messages, doesn't appear in your chats. WhatsApp capture is done by the <b>Asistente Puente</b> (+1 555-153-9713).</li>
+  <li><b>Doesn't touch the production Asistente Puente.</b> Separate services, separate repos and deploys.</li>
+  <li><b>Never writes memories on its own.</b> Everything leaving NEXO for Legado Vivo or Taller enters as a <b>draft</b>; you choose what gets sent and finish it there.</li>
+  <li><b>No access to other people's accounts.</b> Only your own Facebook and Instagram accounts, with tokens you authorize.</li>
+  <li><b>Doesn't give access to your private Muse apps</b> (Momentos, Recetas, etc.). Those are still used from Muse; NEXO <b>feeds</b> them (prepares payloads for Momentos, sends drafts to Legado Vivo and ideas to Taller).</li>
+</ul>
+<h3>The standard package</h3>
+<p>Each extracted item becomes a package: <code>{package_id, source, author, created_at, text, media[], metadata}</code>. NEXO enriches it (category, summary, tags, <code>dedupe_key</code> so nothing is stored twice) and keeps it as <code>listo</code> until you curate and deliver it.</p>
+</section>
+
+<section class="block" id="en-doors">
+<h2>2. The two doors: Asistente Puente vs NEXO</h2>
+<p>The ecosystem has <b>two doors to the same destination</b> (Legado Vivo). They don't compete; each is good at its own thing:</p>
+<div class="diagram">
+  <div class="door">
+    <div class="emoji">💬</div>
+    <h4>Door 1 — Asistente Puente</h4>
+    <p><b>Capture in the moment, one at a time.</b><br>Photo + voice note over WhatsApp → draft in Legado Vivo.</p>
+    <p>For one-off daily photos.</p>
+  </div>
+  <div class="door">
+    <div class="emoji">🗂️</div>
+    <h4>Door 2 — NEXO</h4>
+    <p><b>Batch extraction and curation.</b><br>Facebook / Instagram / WhatsApp export → packages → editor → batch delivery.</p>
+    <p>For volume: weeks of posts, whole chats.</p>
+  </div>
+  <div class="dest">🏠 Destination: Legado Vivo ("Pendiente de completar" drafts) · Taller (ideas)</div>
+</div>
+<div class="note"><b>Important:</b> there is no third lane where you pass photos through the Muse chat and NEXO builds packages with those photos. Photos travel through Door 1 (Asistente Puente) or are uploaded directly on the Legado Vivo website.</div>
+</section>
+
+<section class="block" id="en-setup">
+<h2>3. Setup</h2>
+<h3>GitHub — 100% flat files at the root</h3>
+<p>Create a repo (e.g. <code>nexo</code>) and upload these files <b>flat at the root</b> (no code subfolders: GitHub web upload drops them and breaks the deploy):</p>
+<p><code>package.json</code>, <code>index.js</code>, <code>config.js</code>, <code>store.js</code>, <code>intent.js</code>, <code>jobs.js</code>, <code>normalize.js</code>, <code>ai.js</code>, <code>jev.js</code>, <code>embeddings.js</code>, <code>cli.js</code>, <code>whatsapp-export.js</code>, <code>whatsapp-webhook.js</code>, <code>token-refresh.js</code>, <code>source-facebook.js</code>, <code>source-instagram.js</code>, <code>adapter-legado.js</code>, <code>adapter-momentos.js</code>, <code>adapter-taller.js</code>, <code>editor.html</code>, <code>manual.html</code>, <code>test-all.js</code>, <code>render.yaml</code>, <code>.env.example</code>, <code>.gitignore</code>, <code>README.md</code>, <code>INSTRUCCIONES.md</code>, <code>CHANGELOG.md</code>, plus the non-critical folders <code>test/</code>, <code>media/</code>, <code>assets/</code>.</p>
+<p>Don't upload <code>node_modules/</code> or any <code>.env</code>.</p>
+<h3>Render + database</h3>
+<ol>
+  <li>New → Web Service → connect the repo. Build: <code>npm install</code> · Start: <code>npm start</code> · Free plan. (Or Blueprint with <code>render.yaml</code>.)</li>
+  <li>Create a new database in Neon (separate from the Asistente Puente's) and paste the connection string into <code>DATABASE_URL</code>. Without it, the service boots but data doesn't survive restarts.</li>
+</ol>
+<h3>Variables</h3>
+<table>
+<tr><th>Variable</th><th>Purpose</th><th>Required</th></tr>
+<tr><td><code>DATABASE_URL</code></td><td>PostgreSQL on Neon; package persistence</td><td>Yes (recommended)</td></tr>
+<tr><td><code>FACEBOOK_USER_TOKEN</code></td><td>60-day token from your Consumer app "NEXO Personal" (<code>user_posts</code> + <code>user_photos</code>). <b>Never</b> in code or chats</td><td>Yes, for Facebook</td></tr>
+<tr><td><code>FACEBOOK_APP_ID</code> / <code>FACEBOOK_APP_SECRET</code></td><td>Token auto-renewal (v1.4.0)</td><td>Optional</td></tr>
+<tr><td><code>INSTAGRAM_USER_ID</code></td><td>Only if your Instagram account is business/creator</td><td>Optional</td></tr>
+<tr><td><code>OPENAI_API_KEY</code></td><td>Better summaries, audio transcription, semantic search &amp; Q&amp;A</td><td>Optional</td></tr>
+<tr><td><code>TYPESAFE_API_KEY</code> (alias <code>JEV_API_KEY</code>)</td><td>JEV decisions</td><td>Optional</td></tr>
+<tr><td><code>LEGADO_VIVO_URL</code> / <code>BRIDGE_API_KEY</code> / <code>LEGADO_FAMILY_ID</code></td><td>Package delivery to Legado Vivo as drafts</td><td>Optional</td></tr>
+<tr><td><code>TALLER_URL</code> / <code>TALLER_BRIDGE_KEY</code></td><td>Taller bridge (v1.6.0)</td><td>Optional</td></tr>
+<tr><td><code>WHATSAPP_TOKEN</code> / <code>PHONE_NUMBER_ID</code> / <code>VERIFY_TOKEN</code> / <code>APP_SECRET</code></td><td>Own WhatsApp webhook (opt-in, currently inactive)</td><td>Optional</td></tr>
+<tr><td><code>DRY_RUN</code></td><td><code>true</code> = test mode with no real calls</td><td>Optional</td></tr>
+</table>
+<h3>Test</h3>
+<p>Open <code>https://your-service.onrender.com/</code> → it must say <code>"servicio": "nexo"</code> and <code>"version": "1.7.2"</code>. Then open <code>/editor</code> and <code>/manual</code>.</p>
+</section>
+
+<section class="block" id="en-editor">
+<h2>4. Curation editor</h2>
+<ol>
+  <li>Open <code>https://your-service.onrender.com/editor</code>: your packages appear as cards with thumbnail, source, date, author and status.</li>
+  <li><b>Filter</b> by source (Facebook/Instagram/WhatsApp), status or text; <b>select</b> several with a click (or the checkbox).</li>
+  <li><b>Touch up</b> each one with ✏️: adjust the title and text exactly as you want them to arrive in Legado Vivo (touch-ups are saved on the package).</li>
+  <li>Press <b>"Enviar a Legado Vivo"</b>: confirm and the batch travels as drafts ("Pendiente de completar"). You'll see ✓ per delivered item and ✗ with the reason if any fails. Up to <b>50 packages per call</b>.</li>
+</ol>
+<h3>Statuses</h3>
+<ul>
+  <li><code>listo</code> — curatable package, not yet delivered.</li>
+  <li><code>entregado_legado</code> — delivered to Legado Vivo as a draft.</li>
+  <li><code>entregado_taller</code> — delivered to Taller as an idea (arrives via API; see section 7).</li>
+</ul>
+<div class="note"><b>Explicit note:</b> the editor's button is hardwired to deliver <b>only to Legado Vivo</b>. To deliver packages to <b>Taller</b>, use the API: <code>POST /api/packages/:id/deliver</code> with <code>{ "app": "taller" }</code>, or <code>POST /api/packages/deliver-batch</code> with <code>"app": "taller"</code>.</div>
+<p>Delivery is <b>idempotent</b>: each package travels with <code>draftId: nexo-&lt;package_id&gt;</code>, so resending never duplicates drafts.</p>
+</section>
+
+<section class="block" id="en-waimport">
+<h2>5. Importing a WhatsApp chat</h2>
+<ol>
+  <li>On your iPhone: open the chat → chat name → <b>Export Chat</b> → <b>Without Media</b> → send yourself the <code>.txt</code>.</li>
+  <li><code>POST /api/import/whatsapp-export</code> with <code>{ "text": "&lt;.txt contents&gt;", "chatName": "&lt;chat name&gt;" }</code> → creates <b>one package per message</b>.</li>
+  <li>Packages show up in <code>/editor</code>, ready to curate and deliver.</li>
+</ol>
+<h3>Accepted formats</h3>
+<table>
+<tr><th>Format</th><th>Example</th></tr>
+<tr><td>iPhone in Spanish</td><td><code>[29/9/26, 13:23:28] Name: message</code></td></tr>
+<tr><td>iPhone in English (AM/PM)</td><td><code>[9/29/26, 1:23:28 PM] Name: message</code> — converts 12h→24h and auto-detects month/day</td></tr>
+<tr><td>Android</td><td><code>29/9/26, 13:23 - Name: message</code></td></tr>
+</table>
+<p>Photo/video-only messages (<code>&lt;imagen omitida&gt;</code>, <code>&lt;video omitido&gt;</code>, <code>&lt;Mensaje de album&gt;</code>) are flagged with <code>has_media</code>. Reimporting the same <code>.txt</code> <b>doesn't duplicate</b> (each message keeps its <code>source_id</code>).</p>
+<div class="note"><b>Honest limit:</b> NEXO does <b>not</b> join your camera-roll photos with their <code>.txt</code> placeholders. The media-free export only carries text; real photos travel the other lane (Asistente Puente over WhatsApp, or uploaded directly on Legado Vivo). This importer is for chats where <b>the text is the memory</b> (stories, anecdotes, family news).</div>
+</section>
+
+<section class="block" id="en-search">
+<h2>6. Semantic search &amp; Q&amp;A</h2>
+<p>Requires <code>OPENAI_API_KEY</code> on Render (without it, these routes answer 503 and nothing else changes).</p>
+<ul>
+  <li>Each package is <b>auto-vectorized</b> on save (OpenAI <code>text-embedding-3-small</code>, pgvector on PostgreSQL). If you enable the key later, backfill pending ones with <code>POST /api/embeddings/backfill</code> (batches of 20).</li>
+  <li><b>Search by meaning:</b> <code>GET /api/search?q=sunset at the beach&amp;limit=8</code> → packages ordered by similarity, with <code>score</code>, <code>extracto</code>, source and date.</li>
+  <li><b>Ask in natural language:</b> <code>POST /api/qa</code> with <code>{"question": "when did we go to the beach with Dante?"}</code> → a short answer using <b>only</b> your memories, citing each fact as <code>[1]</code>, <code>[2]</code> (with <code>package_id</code>, source, date and link). If there's nothing, it says so instead of inventing.</li>
+</ul>
+</section>
+
+<section class="block" id="en-taller">
+<h2>7. Taller bridge</h2>
+<p>NEXO talks to your Taller app (creative studio) through its bridge API (<code>/api/bridge/*</code> with the <code>x-bridge-key</code> header). Requires <code>TALLER_URL</code> + <code>TALLER_BRIDGE_KEY</code> on Render; without them the adapter stays inactive without breaking anything (the <code>/</code> root reports <code>adaptador_taller</code>).</p>
+<ul>
+  <li><code>POST /api/packages/:id/deliver</code> with <code>{ "app": "taller" }</code> → creates the <b>idea</b> in Taller (idempotent via deterministic <code>requestKey</code>); the package becomes <code>entregado_taller</code>.</li>
+  <li><code>POST /api/packages/deliver-batch</code> with <code>"app": "taller"</code> → same, in batch (up to 50).</li>
+  <li><code>GET /api/taller/status</code> → bridge health.</li>
+  <li><code>POST /api/taller/ideas</code> with <code>{ title, hobby?, body? }</code> → create an idea.</li>
+  <li><code>POST /api/taller/chat</code> with <code>{ message, mode? }</code> → chat with Taller's assistant (modes <code>chat</code>/<code>review</code>/<code>plan</code>; text only).</li>
+</ul>
+</section>
+
+<section class="block" id="en-webhook">
+<h2>8. Multi-message WhatsApp webhook</h2>
+<div class="note"><b>Opt-in infrastructure, currently inactive:</b> this is <b>not</b> "NEXO on WhatsApp". It's an optional technical webhook for a future scenario (once Meta approves business verification). Without <code>WHATSAPP_TOKEN</code>, <code>PHONE_NUMBER_ID</code>, <code>VERIFY_TOKEN</code> and <code>APP_SECRET</code>, the webhook rejects events and NEXO works the same. It would be configured on a Meta app <b>separate</b> from the Asistente Puente's.</div>
+<p>If ever enabled: it groups consecutive messages from the same sender into batches (flushed after a 30 s pause or a 3 min cap), detects triggers (<code>photo_relatos</code>, <code>album_caption</code>, <code>multi_photo_album</code>, <code>audio_note</code>…), consecutive photos are bundled into an album for Momentos, and each voice note becomes a separate transcription (Whisper if <code>OPENAI_API_KEY</code> is set).</p>
+</section>
+
+<section class="block" id="en-token">
+<h2>9. Automatic Facebook token renewal</h2>
+<p>The Facebook user token lives 60 days. If you set <code>FACEBOOK_APP_ID</code> and <code>FACEBOOK_APP_SECRET</code> (from your "NEXO Personal" app in Meta for Developers → Settings → Basic), NEXO checks validity at boot and every 24 h, and <b>renews the token by itself</b> when it expires within 7 days (<code>FB_TOKEN_REFRESH_MARGIN_DAYS</code>).</p>
+<ul>
+  <li>Check status at <code>GET /api/facebook/token</code> (valid, days remaining, source; it <b>never</b> shows the token value).</li>
+  <li>To force a renewal: <code>POST /api/facebook/token/refresh</code>.</li>
+</ul>
+</section>
+
+<section class="block" id="en-jev">
+<h2>10. JEV — AI decisions</h2>
+<p>With <code>TYPESAFE_API_KEY</code> (alias <code>JEV_API_KEY</code>), JEV (TypeSafe AI) acts as the fast-decision brain per package. <b>JEV doesn't generate text</b>: it writes no summaries or tags.</p>
+<ul>
+  <li><code>choice</code> → topic category with confidence (replaces the heuristic if ≥ 0.75).</li>
+  <li><code>score</code> → relevance score (0–100).</li>
+  <li><code>noul</code> → binary gates: probable duplicate? safe delivery?</li>
+</ul>
+<p><b>Low confidence → human review, not automation:</b> the package is flagged in <code>metadata.revision_humana</code> with the reason. Without a key, or if the service fails, the package keeps its local heuristics and continues normally.</p>
+</section>
+
+<section class="block" id="en-api">
+<h2>11. API reference</h2>
+<table>
+<tr><th>Method</th><th>Route</th><th>Purpose</th></tr>
+<tr><td>GET</td><td><code>/</code></td><td>Service status (version, adapters, flags)</td></tr>
+<tr><td>GET</td><td><code>/manual</code></td><td>This manual (web page)</td></tr>
+<tr><td>GET</td><td><code>/editor</code></td><td>Visual curation editor</td></tr>
+<tr><td>GET</td><td><code>/privacidad</code></td><td>Privacy policy (required by Meta)</td></tr>
+<tr><td>GET</td><td><code>/api/ayuda</code></td><td>Command examples</td></tr>
+<tr><td>POST</td><td><code>/api/command</code> <code>{text}</code></td><td>Natural-language command</td></tr>
+<tr><td>POST</td><td><code>/api/jobs</code> <code>{source,kind,from,to}</code></td><td>Direct job</td></tr>
+<tr><td>GET</td><td><code>/api/jobs</code> · <code>/api/jobs/:id</code></td><td>View jobs</td></tr>
+<tr><td>GET</td><td><code>/api/packages</code> · <code>/api/packages/:id</code></td><td>View packages</td></tr>
+<tr><td>POST</td><td><code>/api/packages/:id/deliver</code> <code>{app:"legado-vivo"|"taller"}</code></td><td>Deliver one package</td></tr>
+<tr><td>POST</td><td><code>/api/packages/deliver-batch</code> <code>{ids[],app,edits?}</code></td><td>Deliver up to 50 in batch</td></tr>
+<tr><td>POST</td><td><code>/api/import/whatsapp-export</code> <code>{text,chatName}</code></td><td>Import a WhatsApp export</td></tr>
+<tr><td>GET</td><td><code>/api/facebook/token</code></td><td>Token status (never shows the value)</td></tr>
+<tr><td>POST</td><td><code>/api/facebook/token/refresh</code></td><td>Force token renewal</td></tr>
+<tr><td>GET</td><td><code>/api/taller/status</code></td><td>Taller bridge health</td></tr>
+<tr><td>POST</td><td><code>/api/taller/ideas</code> <code>{title,hobby?,body?}</code></td><td>Create idea in Taller</td></tr>
+<tr><td>POST</td><td><code>/api/taller/chat</code> <code>{message,mode?}</code></td><td>Chat with Taller's assistant</td></tr>
+<tr><td>GET</td><td><code>/api/search?q=…</code></td><td>Semantic search (requires <code>OPENAI_API_KEY</code>)</td></tr>
+<tr><td>POST</td><td><code>/api/qa</code> <code>{question}</code></td><td>Q&amp;A with citations (requires <code>OPENAI_API_KEY</code>)</td></tr>
+<tr><td>POST</td><td><code>/api/embeddings/backfill</code></td><td>Vectorize pending (batches of 20)</td></tr>
+<tr><td>GET/POST</td><td><code>/webhook</code></td><td>WhatsApp webhook (opt-in; requires signature)</td></tr>
+<tr><td>GET</td><td><code>/api/whatsapp/albums…</code></td><td>Prepared albums/notes for Momentos</td></tr>
+</table>
+</section>
+
+<section class="block" id="en-trouble">
+<h2>12. Testing &amp; troubleshooting</h2>
+<ul>
+  <li><code>npm test</code> → 31 tests (unit + E2E in DRY_RUN, no real credentials).</li>
+  <li><code>node test-all.js</code> → 51 tests (webhook, token-refresh, embeddings, multi-message batching E2E).</li>
+  <li><b>Broken deploy after uploading the ZIP:</b> check the files are <b>flat at the repo root</b> (no code subfolders) and <code>package.json</code> is NEXO's. Read the Render log: <code>Cannot find module</code> is almost always a misplaced file.</li>
+  <li><b>Root doesn't show the new version:</b> run <b>Manual Deploy → Deploy latest commit</b> on Render and wait for it to finish.</li>
+  <li><b>WhatsApp import returns 0 messages:</b> check the <code>.txt</code> was exported <b>without media</b> and the format is iOS or Android (see section 5).</li>
+  <li><b>Batch delivery to Legado Vivo fails:</b> verify <code>LEGADO_VIVO_URL</code>, <code>BRIDGE_API_KEY</code> (same as on Railway) and <code>LEGADO_FAMILY_ID</code> on Render.</li>
+  <li><b>Packages can't be deleted yet</b> from the editor: simply don't select them for delivery.</li>
+</ul>
+</section>
+
+<section class="block" id="en-limits">
+<h2>13. Honest limits</h2>
+<ul>
+  <li><b>WhatsApp has no official API for reading your personal chats.</b> The way in is the manual chat export.</li>
+  <li><b>Only your own</b> Facebook and Instagram accounts, and what the official API allows. Instagram requires a business/creator account.</li>
+  <li>The WhatsApp importer does <b>not</b> join photos with placeholders (see section 5).</li>
+  <li>The editor button <b>only delivers to Legado Vivo</b>; Taller delivery goes through the API (see section 4).</li>
+  <li>Momentos exposes no public API: albums are imported from the Muse chat.</li>
+  <li>Tokens are <b>never</b> pasted into chats or code: they live only as environment variables on Render.</li>
+</ul>
+<p>Privacy: <a href="/privacidad">privacy policy</a> · Contact: Miguel Susffalich Tomasevich</p>
+</section>
+
+</div><!-- /lang-en -->
+
+</main>
+<footer>
+  NEXO · <span data-es="Manual de usuario" data-en="User manual">Manual de usuario</span> ·
+  <a href="/editor" data-es="Editor de curaduría" data-en="Curation editor">Editor de curaduría</a> ·
+  <a href="/privacidad" data-es="Privacidad" data-en="Privacy">Privacidad</a>
+</footer>
+<script>
+function setLang(l){
+  localStorage.setItem('nexo-manual-lang', l);
+  document.getElementById('lang-es').style.display = l === 'es' ? '' : 'none';
+  document.getElementById('lang-en').style.display = l === 'en' ? '' : 'none';
+  document.getElementById('btnEs').classList.toggle('active', l === 'es');
+  document.getElementById('btnEn').classList.toggle('active', l === 'en');
+  document.documentElement.lang = l;
+  document.title = l === 'es' ? 'Manual — NEXO' : 'Manual — NEXO';
+  document.querySelectorAll('[data-es]').forEach(function(el){
+    el.textContent = l === 'es' ? el.getAttribute('data-es') : el.getAttribute('data-en');
+  });
+}
+(function(){
+  var l = localStorage.getItem('nexo-manual-lang') || 'es';
+  setLang(l === 'en' ? 'en' : 'es');
+})();
+</script>
+</body>
+</html>

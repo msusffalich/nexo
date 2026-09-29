@@ -6,6 +6,10 @@
 
 > ⚠️ **El Asistente Puente actual NO se toca.** Sigue en producción con su repo, su servicio Render y su webhook de Meta intactos. NEXO es un servicio **nuevo y separado**.
 
+**v1.7.2 — novedad:** **manual dentro de la app**: abre `/manual` en tu navegador (también enlazado desde el `/editor`): el manual de usuario completo, bilingüe ES/EN con selector de idioma. Ver [Manual](#).
+
+**v1.7.1 — novedad:** **importador de WhatsApp** que acepta el formato de iPhone en inglés con AM/PM (`[9/29/26, 1:23:28 PM]`) y detecta mes/día automáticamente; `<Mensaje de album>` se marca con `has_media`; los placeholders de medios idénticos ya no colapsan por deduplicación.
+
 **v1.7.0 — novedad:** **editor de curaduría**: abre `/editor` en tu navegador, filtra tus paquetes por fuente/estado, selecciona varios, retoca título y texto, y envíalos **en lote** a Legado Vivo como borradores (`POST /api/packages/deliver-batch`).
 
 **v1.5.0 — novedad:** **búsqueda semántica + Q&A con citas**: cada paquete se vectoriza (pgvector) y puedes preguntar en lenguaje natural — `GET /api/search?q=...`, `POST /api/qa` (responde solo con tus recuerdos y cita `[1]…[n]` con fuente, fecha y enlace). Requiere `OPENAI_API_KEY` (ver [Variables opcionales](#puesta-en-marcha-pasos-para-miguel)).
@@ -33,14 +37,14 @@
 | `jala mis videos de instagram de esta semana` | Extrae videos recientes |
 | `cómo van mis extracciones` | Muestra el estado de los trabajos |
 
-WhatsApp: el bot actual sigue capturando foto+relato como siempre. El **historial de chats personales** llega en **fase 2** (exportación manual del chat → `importar-whatsapp`).
+WhatsApp: el bot actual sigue capturando foto+relato como siempre. El **historial de chats personales** se importa con **exportación manual del chat** → `POST /api/import/whatsapp-export` (ver [Manual](/manual), sección 5).
 
 ## Puesta en marcha (pasos para Miguel)
 
 **1. Crea un repo NUEVO en GitHub**
 - Nombre sugerido: `nexo` (público o privado, como prefieras).
 - Sube estos archivos **planos en la raíz** (todo el código runtime va 100% en la raíz, SIN subcarpetas de código: las carpetas no sobreviven el upload web de GitHub, y eso fue lo que tumbó el deploy de la v1.1.0):
-  `package.json`, `index.js`, `config.js`, `store.js`, `intent.js`, `jobs.js`, `normalize.js`, `ai.js`, `jev.js`, `embeddings.js`, `cli.js`, `whatsapp-export.js`, `whatsapp-webhook.js`, `token-refresh.js`, `source-facebook.js`, `source-instagram.js`, `adapter-legado.js`, `adapter-momentos.js`, `test-all.js`, `render.yaml`, `.env.example`, `.gitignore`, `README.md`, `INSTRUCCIONES.md`, `CHANGELOG.md`, y las carpetas no-críticas `test/`, `media/`, `assets/` (con `nexo-logo.png`, `nexo-icon.png` y `favicon.ico`).
+  `package.json`, `index.js`, `config.js`, `store.js`, `intent.js`, `jobs.js`, `normalize.js`, `ai.js`, `jev.js`, `embeddings.js`, `cli.js`, `whatsapp-export.js`, `whatsapp-webhook.js`, `token-refresh.js`, `source-facebook.js`, `source-instagram.js`, `adapter-legado.js`, `adapter-momentos.js`, `adapter-taller.js`, `editor.html`, `manual.html`, `test-all.js`, `render.yaml`, `.env.example`, `.gitignore`, `README.md`, `INSTRUCCIONES.md`, `CHANGELOG.md`, y las carpetas no-críticas `test/`, `media/`, `assets/` (con `nexo-logo.png`, `nexo-icon.png` y `favicon.ico`).
 - No subas `node_modules/` ni ningún `.env`.
 
 **2. Crea un Web Service NUEVO en Render (no toques el actual)**
@@ -157,10 +161,14 @@ El título del álbum usa la zona horaria **America/Lima**: `Fotos del 24 de sep
 | POST | `/api/jobs` `{source,kind,from,to,target_apps}` | Trabajo directo |
 | GET | `/api/jobs` · `/api/jobs/:id` | Ver trabajos |
 | GET | `/api/packages` · `/api/packages/:id` | Ver paquetes |
-| POST | `/api/packages/:id/deliver` `{app:"legado-vivo"}` | Enviar a Legado Vivo |
+| POST | `/api/packages/:id/deliver` `{app:"legado-vivo"\|"taller"}` | Enviar a Legado Vivo o a Taller (idea) |
 | POST | `/api/packages/deliver-batch` `{ids[],app,edits?}` | **v1.7.0:** enviar hasta 50 paquetes en lote |
 | GET | `/editor` | **v1.7.0:** editor visual de curaduría |
-| POST | `/api/import/whatsapp-export` `{text,chatName}` | Fase 2: importar exportación de WhatsApp (v1.7.1: acepta formato iPhone en inglés con AM/PM y M/D/Y) |
+| GET | `/manual` | **v1.7.2:** manual de usuario dentro de la app (ES/EN) |
+| POST | `/api/import/whatsapp-export` `{text,chatName}` | Importar exportación de WhatsApp (v1.7.1: acepta formato iPhone en inglés con AM/PM y M/D/Y) |
+| GET | `/api/facebook/token` | **v1.4.0:** estado del token (nunca muestra el valor) |
+| POST | `/api/facebook/token/refresh` | **v1.4.0:** forzar renovación del token |
+| GET | `/api/taller/status` | **v1.6.0:** salud del puente con Taller |
 | GET | `/webhook` | Verificación del webhook de WhatsApp (Meta) |
 | POST | `/webhook` | Eventos de WhatsApp (requiere firma `X-Hub-Signature-256`) |
 | GET | `/api/whatsapp/albums` | Álbumes/notas preparados (`?wa_id`, `?limit`) |
@@ -187,10 +195,9 @@ Cada paquete que extrae NEXO se **vectoriza** con OpenAI `text-embedding-3-small
 - **Taller** — `POST /api/packages/:id/deliver` con `{ "app": "taller" }` crea la idea en Taller (idempotente por `requestKey` determinista). Además: `GET /api/taller/status`, `POST /api/taller/chat { message, mode?, projectId?, language? }` (modos `chat`/`review`/`plan`, solo texto) y `POST /api/taller/ideas { title, hobby?, body?, requestKey? }`. La raíz `/` reporta `adaptador_taller: true/false`.
 - **Momentos / Prisma Editorial** — por ahora vía el chat con Muse: pide los paquetes (`cli.js paquetes` o `GET /api/packages`) y aliméntalos a la app que corresponda.
 
-## Fase 2 (no incluida en este despliegue)
+## Extracciones programadas (opcional)
 
-- Importación del historial de chats personales de WhatsApp vía archivo de exportación (el parser `whatsapp-export.js` ya está incluido y probado; el endpoint `/api/import/whatsapp-export` lo procesa).
-- Extracciones programadas automáticas (cron externo que llame a `/api/command`).
+- Las extracciones automáticas por horario no están incluidas: usa un cron externo que llame a `POST /api/command`.
 
 ## Límites honestos
 
@@ -201,12 +208,13 @@ Cada paquete que extrae NEXO se **vectoriza** con OpenAI `text-embedding-3-small
 
 ## Pruebas
 
-- `npm test` → 26 pruebas (unitarias + E2E en DRY_RUN con APIs simuladas). Sin credenciales reales.
+- `npm test` → 31 pruebas (unitarias + E2E en DRY_RUN con APIs simuladas). Sin credenciales reales.
 - `node test-all.js` → 51 pruebas: unitarias del webhook (triggers, títulos con rango de fechas, comandos, firma, temas de Momentos) + E2E del loteo multi-mensaje con `fastify.inject` + unitarias de token-refresh (debug/exchange/ensureFreshToken) + **v1.5.0: embeddings, búsqueda semántica, Q&A con citas y backfill** (fetch simulado, sin red).
 - `TARGET=prod node test-all.js` → verificación de solo lectura contra producción (versión, rutas, `/api/search`). Con `WA_E2E=1` y `WA_TEST_APP_SECRET` corre además el E2E firmado contra prod (requiere v1.5.0 desplegado; crea un álbum de prueba).
 
 ## Versiones
 
+- **v1.7.2** — Manual de usuario dentro de la app (`GET /manual`, `manual.html`): 13 secciones bilingües ES/EN con selector de idioma persistente (qué es NEXO y cómo se opera, las dos puertas, puesta en marcha, editor, importador WhatsApp, búsqueda semántica, puente Taller, webhook, token, JEV, referencia API, troubleshooting, límites); enlace «📖 Manual / Ayuda» en el header del `/editor`; la raíz `/` reporta `manual: "/manual"`. Docs: README con 7 correcciones (lista de archivos completa, sección «Fase 2» eliminada, 31 pruebas, tabla API con rutas de token y `deliver` a Taller, English summary al día), INSTRUCCIONES con versión 1.7.1 y sección de uso del puente Taller (ES+EN).
 - **v1.7.1** — Fix del importador de WhatsApp: acepta formato iPhone en inglés con AM/PM (`[9/29/26, 1:23:28 PM]`) y detecta mes/día vs día/mes automáticamente; `<Mensaje de album>` se marca con `has_media`; los placeholders de medios idénticos ya no colapsan por deduplicación (cada mensaje conserva su `source_id`, reimportar no duplica); corregido `created_at` inválido en formato Android.
 - **v1.7.0** — Editor de curaduría (`GET /editor`, `editor.html`): filtra por fuente/estado/texto, selecciona varios paquetes, retoca título y texto, y envía en lote a Legado Vivo; `POST /api/packages/deliver-batch { ids[], app, edits? }` (hasta 50 por llamada, idempotente por `draftId: nexo-<package_id>`); la raíz `/` reporta `editor_curaduria`.
 - **v1.6.0** — Puente con Taller (estudio creativo): `adapter-taller.js`, rutas `GET /api/taller/status`, `POST /api/taller/chat`, `POST /api/taller/ideas`; `POST /api/packages/:id/deliver` acepta `{ "app": "taller" }`; variables `TALLER_URL`, `TALLER_BRIDGE_KEY`.
@@ -224,6 +232,6 @@ Cada paquete que extrae NEXO se **vectoriza** con OpenAI `text-embedding-3-small
 
 **NEXO** is a content-extraction hub: it pulls photos, posts and videos from your own **Facebook** and **Instagram** accounts via Meta's official Graph API, normalizes each item into a standard **package** (`package_id, source, author, created_at, text, media[], metadata`), enriches it with AI (topic classification, summary, tags, deduplication), and makes it available to your other apps (Momentos, Prisma Editorial, Legado Vivo) via chat, REST API, or direct delivery to Legado Vivo drafts.
 
-It does **not** touch the production Asistente Puente (separate repo, separate Render service, Meta webhook unchanged). WhatsApp personal chat history is **phase 2** (manual chat export; parser included). With `TYPESAFE_API_KEY` set, **JEV (TypeSafe AI)** adds fast typed decisions per package (category with confidence, relevance score, duplicate/safe-delivery gates) — it does not generate text; low confidence flags the package for human review instead of automating. Setup: create a new GitHub repo, upload the flat files, create a **new** Render web service, set env vars (`DATABASE_URL`, `FACEBOOK_USER_TOKEN`, optional `INSTAGRAM_USER_ID`, `OPENAI_API_KEY`, `TYPESAFE_API_KEY`, `LEGADO_*`), then test with `GET /` and `POST /api/command`. `npm test` runs 26 offline tests; `node test-all.js` runs 36 tests including the v1.3.0 WhatsApp multi-message webhook E2E.
+It does **not** touch the production Asistente Puente (separate repo, separate Render service, Meta webhook unchanged). Personal WhatsApp chat history is imported via **manual chat export** → `POST /api/import/whatsapp-export` (v1.7.1: accepts the English iPhone format with AM/PM and auto month/day detection). With `TYPESAFE_API_KEY` set, **JEV (TypeSafe AI)** adds fast typed decisions per package (category with confidence, relevance score, duplicate/safe-delivery gates) — it does not generate text; low confidence flags the package for human review instead of automating. **v1.4.0** added automatic Facebook token renewal (checks at boot and every 24 h; status at `GET /api/facebook/token`). **v1.5.0** added semantic search + Q&A with citations (`GET /api/search`, `POST /api/qa`; requires `OPENAI_API_KEY`). **v1.6.0** added the Taller bridge (`adapter-taller.js`; `GET /api/taller/status`, `POST /api/taller/ideas`, `POST /api/taller/chat`; deliver with `{app:"taller"}`). **v1.7.0** added the visual curation editor (`GET /editor`: filter, select, touch up title/text, batch-deliver up to 50 to Legado Vivo as drafts). **v1.7.2** added the in-app user manual (`GET /manual`, bilingual ES/EN). Setup: create a new GitHub repo, upload the flat files, create a **new** Render web service, set env vars (`DATABASE_URL`, `FACEBOOK_USER_TOKEN`, optional `INSTAGRAM_USER_ID`, `OPENAI_API_KEY`, `TYPESAFE_API_KEY`, `LEGADO_*`, `TALLER_*`), then test with `GET /` and `POST /api/command`. `npm test` runs 31 offline tests; `node test-all.js` runs 51 tests including the v1.3.0 WhatsApp multi-message webhook E2E.
 
 **v1.3.0 (WhatsApp multi-message webhook, opt-in):** with `WHATSAPP_TOKEN`, `PHONE_NUMBER_ID`, `VERIFY_TOKEN` and `APP_SECRET` set (on a Meta app separate from the Puente's), `POST /webhook` groups consecutive messages from the same sender into batches (30 s pause or 3 min cap flush). Batch triggers: `photo_relatos` (1 photo), `album_caption` / `album_no_caption` (2 photos), `multi_photo_album` (3+ photos, date-range title, reply states photo count + range), `audio_note` / `multi_audio_notes` (audios always become separate transcriptions, never album items; labeled `audio_1…N`), `text_only`, `album_add_text` (explicit "agrégala al álbum" command — a late caption is acknowledged, never auto-appended). Prepared albums are exposed at `/api/whatsapp/albums…` with an import payload for Momentos (`createalbum` → `uploadmedia` → `addtextitem`).
