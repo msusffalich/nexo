@@ -1,0 +1,88 @@
+# NEXO — Changelog
+
+## v1.7.1 — 29 de septiembre de 2026
+
+**Fix del importador de WhatsApp (formato de iPhone en inglés).**
+
+- `whatsapp-export.js` ahora acepta el formato iOS de 12 horas con `AM/PM` (`[9/29/26, 1:23:28 PM] Nombre: mensaje`); antes esas líneas no se reconocían y la importación devolvía 0 mensajes.
+- Conversión 12h→24h (`1:23 PM` → `13:23`, `12:05 AM` → `00:05`).
+- Detección automática de orden mes/día vs día/mes: si el segundo número es > 12, el formato es M/D/Y (iPhone en inglés) y se intercambia; si no, se conserva día/mes.
+- `<Mensaje de album>` ahora se marca con `has_media` (antes solo los placeholders de multimedia).
+- Corrección silenciosa de pérdida de datos: los placeholders de medios idénticos al mismo segundo (ej. 10× `<imagen omitida>`) ya no colapsan en un solo paquete por la deduplicación; cada mensaje conserva su propio `source_id` (conteo determinista, reimportar no duplica). También se corrigió que el formato Android generaba un `created_at` inválido (se pasaba el texto del mensaje como segundos).
+- 5 pruebas nuevas en `test/run-tests.js` (31/31 en `npm test`).
+
+## v1.7.0 — 29 de septiembre de 2026
+
+**Editor de curaduría + entrega en lote a Legado Vivo.**
+
+- Nueva página `GET /editor` (`editor.html`): filtra paquetes por fuente/estado/texto, muestra tarjetas con miniatura, insignia de fuente y estado; clic para seleccionar varios, botón ✏️ para retocar título y texto de cada paquete antes de enviar, y barra inferior con **«Enviar a Legado Vivo»** en lote (con confirmación y resultado por paquete ✓/✗). Responsive (móvil y escritorio), en español.
+- Nueva ruta `POST /api/packages/deliver-batch { ids[], app, edits? }`: entrega hasta 50 paquetes por llamada a Legado Vivo (`entregado_legado`) o Taller (`entregado_taller`); `edits` aplica título/texto retocados al paquete antes de entregarlo (se guardan en el paquete). Los ids inexistentes se reportan sin tumbar el lote.
+- La raíz `/` ahora incluye `editor_curaduria: "/editor"` y la versión `1.7.0`.
+- Docs: `README.md`, `INSTRUCCIONES.md` (bilingüe), `CHANGELOG.md`.
+
+## v1.6.0 — 28 de septiembre de 2026
+
+**Puente con Taller (estudio creativo).**
+
+- Nuevo `adapter-taller.js`: habla con `/api/bridge/*` de Taller usando `x-bridge-key` (mismo patrón que el adaptador de Legado Vivo). Funciones: `status`, `listIdeas`, `createIdea` (idempotente por `requestKey`), `deleteIdea`, `convertIdea`, `listProjects`, `createProject`, `getProject`, `updateProject`, `projectEntries`, `chat` (modos `chat`/`review`/`plan`, solo texto en v1), `assistantHistory`, `exportAll` y `deliverIdea` (paquete → idea, `requestKey` determinista desde el `package_id`).
+- Nuevas rutas: `GET /api/taller/status`, `POST /api/taller/chat`, `POST /api/taller/ideas`.
+- `POST /api/packages/:id/deliver` ahora acepta `{ "app": "taller" }` (además de `legado-vivo`); marca el paquete como `entregado_taller`.
+- La raíz `/` reporta `adaptador_taller: true/false`.
+- Nuevas variables opcionales: `TALLER_URL`, `TALLER_BRIDGE_KEY` (sin ellas, el adaptador queda en `pendiente_config` sin romper nada).
+- Docs: `README.md`, `INSTRUCCIONES.md` (bilingüe), `.env.example`.
+
+## v1.5.0 — 25 de septiembre de 2026
+
+**Búsqueda semántica + Q&A con citas (archivo familiar conversacional).**
+
+- Cada paquete extraído se **vectoriza** con OpenAI `text-embedding-3-small` (1536 dims) y se guarda en PostgreSQL con **pgvector** (`hub_packages.embedding`); el modo JSON local usa coseno en JS. La extensión se instala con `CREATE EXTENSION IF NOT EXISTS vector` al arrancar (best-effort: si no está disponible, el servicio arranca igual y la búsqueda reporta el motivo).
+- Nuevas rutas:
+  - `GET /api/search?q=...&limit=` — paquetes por **similitud semántica** (no por palabras exactas), con puntaje.
+  - `POST /api/qa { question, limit? }` — responde **solo** con los fragmentos recuperados (si no está, lo dice) y devuelve **citas numeradas** `[1]…[n]` con `package_id`, fuente, fecha, permalink y extracto.
+  - `POST /api/embeddings/backfill { limit? }` — vectoriza en lotes los paquetes que aún no tienen embedding.
+- Sin `OPENAI_API_KEY`, las tres rutas responden 503 (`busqueda_semantica_desactivada`): la extracción sigue funcionando igual y los embeddings fallidos nunca la rompen.
+- Nuevas variables opcionales: `EMBEDDING_MODEL` (default `text-embedding-3-small`), `QA_MODEL` (default `gpt-4o-mini`).
+- La raíz `/` ahora reporta `busqueda_semantica: activa | desactivada (configura OPENAI_API_KEY)`.
+- `test-all.js`: 51 pruebas (9 nuevas de embeddings/search/Q&A/backfill con fetch simulado, sin red ni credenciales) + chequeo de producción para `/api/search`.
+- Docs: `README.md`, `INSTRUCCIONES.md` (bilingüe), `.env.example`.
+
+## v1.4.0 — 25 de septiembre de 2026
+
+**Renovación automática del token de Facebook.**
+
+- El token de usuario de Facebook vive 60 días. NEXO ahora lo verifica solo con `/debug_token` y lo renueva con `fb_exchange_token` cuando vence dentro del margen (`FB_TOKEN_REFRESH_MARGIN_DAYS`, 7 días por defecto). El token renovado se guarda en `hub_service_tokens` (PostgreSQL) y las extracciones usan siempre el token vigente (BD primero, `FACEBOOK_USER_TOKEN` como respaldo).
+- Nuevas variables: `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` (sin ellas, la renovación queda en modo manual como antes).
+- Nuevas rutas: `GET /api/facebook/token` (estado: válido, días restantes, fuente, modo auto/manual) y `POST /api/facebook/token/refresh` (forzar renovación). Ninguna expone el valor del token.
+- Chequeo al arrancar + re-chequeo diario (24 h). Los fallos se registran en el log sin detener el servicio.
+- `test-all.js`: 43 pruebas (7 nuevas de token-refresh con fetch simulado, sin red ni credenciales).
+- Docs: `README.md`, `INSTRUCCIONES.md` (bilingüe), `.env.example`.
+
+## v1.3.0 — 24 de septiembre de 2026
+
+**Webhook de WhatsApp multi-mensaje (opt-in).**
+
+- Nuevas rutas `GET /webhook` (verificación de Meta) y `POST /webhook` (eventos con firma `X-Hub-Signature-256`; 200 inmediato, proceso en segundo plano; `message_id` duplicados ignorados).
+- Loteo por remitente: los mensajes consecutivos se agrupan si llegan dentro de 3 min (`WA_BATCH_MAX_MS`); el lote se cierra con 30 s de pausa (`WA_BATCH_PAUSE_MS`) o al tope de 3 min.
+- Triggers: `photo_relatos` (1 foto), `album_caption` / `album_no_caption` (2 fotos), `multi_photo_album` (3+ fotos, título con rango de fechas en America/Lima, respuesta con N fotos + rango), `audio_note` (1 audio), `multi_audio_notes` (2+ audios, etiquetas `audio_1…N` / `photo_1…M`), `text_only`, `album_add_text`.
+- Reglas fijas: el audio siempre va a transcripciones/notas separadas (Whisper con `OPENAI_API_KEY`; sin ella queda pendiente), nunca al álbum; lotes mixtos se procesan por separado; el caption tardío no se anexa solo (comando explícito `agrégala al álbum`).
+- Álbumes preparados para Momentos: `GET /api/whatsapp/albums`, `GET /api/whatsapp/albums/:id`, `GET /api/whatsapp/albums/:id/import` (payload `createalbum`/`uploadmedia`/`addtextitem`), `POST /api/whatsapp/albums/:id/import`, `GET /api/whatsapp/media/:albumId/:file`; tema Momentos inferido (celebrations/festivities/memories/travel/entertainment).
+- Textos inmediatos: `ayuda`, `estado`, `extrae…` cierran el lote y se atienden sin esperar.
+- Nuevas variables: `WHATSAPP_TOKEN`, `PHONE_NUMBER_ID`, `VERIFY_TOKEN`, `APP_SECRET`, `WA_BATCH_PAUSE_MS`, `WA_BATCH_MAX_MS`, `MOMENTOS_AUTHOR`, `MOMENTOS_BRIDGE_URL` (futuro).
+- `test-all.js`: 36 pruebas (unitarias + E2E del loteo con `fastify.inject` + chequeo de producción con `TARGET=prod`).
+- Docs: `README.md`, `INSTRUCCIONES.md` (bilingüe), manual v2 (bilingüe, DOCX), spec v1.3.0 (DOCX).
+
+## v1.1.2 — 23 de septiembre de 2026
+
+- Nueva ruta pública `GET /privacidad` con la política de privacidad (exigida por Meta para habilitar el inicio de sesión en la app NEXO de Facebook). Sin otros cambios funcionales.
+
+## v1.1.1 — 22 de septiembre de 2026
+
+- Todo el código runtime plano en la raíz (`source-facebook.js`, `source-instagram.js`, `adapter-legado.js`; se eliminaron las carpetas `sources/` y `adapters/`). Motivo: las subcarpetas no sobreviven el upload web de GitHub y tumbaban el deploy en Render (`Cannot find module './sources/facebook'`).
+
+## v1.1.0 — 22 de septiembre de 2026
+
+- Integración JEV (TypeSafe AI) como motor de decisiones: `choice` (categoría con confianza), `score` (relevancia 0–100), `noul` (puertas ¿duplicado? / ¿entrega segura?). Sin key o ante fallo, heurísticas locales sin bloquear.
+
+## v1.0.0 — 22 de septiembre de 2026
+
+- Versión inicial: hub de extracción Facebook/Instagram → paquetes estándar → enriquecimiento IA → entrega a Legado Vivo. Comandos en lenguaje natural, parser de exportación de WhatsApp (fase 2), DRY_RUN, `npm test` con 26 pruebas.

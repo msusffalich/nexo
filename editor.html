@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor de curaduría — NEXO</title>
+<style>
+:root{
+  --bg:#f4f6fb; --card:#fff; --ink:#1c2333; --muted:#68738a;
+  --accent:#2563eb; --accent-d:#1d4ed8; --ok:#15803d; --warn:#b45309; --bad:#b91c1c;
+  --line:#e3e8f2; --chip:#eef2ff;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+header.top{position:sticky;top:0;z-index:20;background:#101828;color:#fff;padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+header.top h1{font-size:1.15rem;margin:0;font-weight:700}
+header.top .sub{font-size:.8rem;color:#b9c2d8}
+.bridge{margin-left:auto;font-size:.75rem;padding:6px 12px;border-radius:999px;background:#1f2937;color:#e5e7eb}
+.bridge.on{background:#065f46;color:#d1fae5}
+.bridge.off{background:#7c2d12;color:#ffedd5}
+main{max-width:1180px;margin:0 auto;padding:18px 16px 120px}
+.filters{display:flex;gap:10px;flex-wrap:wrap;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:16px}
+.filters select,.filters input[type=search]{font-size:.9rem;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+.filters input[type=search]{flex:1;min-width:180px}
+.count{font-size:.85rem;color:var(--muted);margin:4px 2px 12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;position:relative;transition:box-shadow .15s,border-color .15s}
+.card:hover{box-shadow:0 4px 18px rgba(16,24,40,.10)}
+.card.selected{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+.card .thumb{position:relative;aspect-ratio:4/3;background:#0f172a;overflow:hidden}
+.card .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.card .thumb .nomedia{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:2rem}
+.card .thumb .play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:2.2rem;text-shadow:0 2px 8px rgba(0,0,0,.6);pointer-events:none}
+.card input[type=checkbox]{position:absolute;top:10px;left:10px;width:22px;height:22px;accent-color:var(--accent);cursor:pointer;z-index:2}
+.card .badges{position:absolute;top:10px;right:10px;display:flex;gap:6px;z-index:2}
+.badge{font-size:.68rem;font-weight:700;padding:4px 9px;border-radius:999px;background:rgba(16,24,40,.78);color:#fff;text-transform:uppercase;letter-spacing:.04em}
+.badge.fb{background:#1877f2}.badge.ig{background:#c13584}.badge.wa{background:#25d366;color:#063}
+.badge.st-listo{background:#334155}.badge.st-entregado_legado{background:var(--ok)}.badge.st-entregado_taller{background:#6d28d9}
+.card .body{padding:12px 14px}
+.card .date{font-size:.75rem;color:var(--muted);margin-bottom:4px}
+.card .excerpt{font-size:.88rem;line-height:1.45;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.card .meta{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:.75rem;color:var(--muted)}
+.card .editbtn{background:none;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:.78rem;cursor:pointer;color:var(--accent)}
+.card .editbtn:hover{background:var(--chip)}
+.card .result{font-size:.78rem;font-weight:700;margin-top:8px}
+.card .result.ok{color:var(--ok)}.card .result.fail{color:var(--bad)}
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#101828;color:#fff;padding:12px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 -4px 20px rgba(0,0,0,.25)}
+.bar .n{font-weight:700}
+.bar button{font-size:.9rem;font-weight:700;border:none;border-radius:10px;padding:11px 18px;cursor:pointer}
+.btn-send{background:var(--accent);color:#fff}
+.btn-send:hover{background:var(--accent-d)}
+.btn-send:disabled{background:#475569;cursor:not-allowed}
+.btn-clear{background:transparent;color:#cbd5e1;border:1px solid #334155}
+.progress{font-size:.82rem;color:#cbd5e1}
+.modal{position:fixed;inset:0;z-index:40;background:rgba(15,23,42,.6);display:none;align-items:center;justify-content:center;padding:16px}
+.modal.open{display:flex}
+.sheet{background:#fff;border-radius:16px;max-width:640px;width:100%;max-height:92vh;overflow:auto;padding:20px}
+.sheet h2{margin:0 0 4px;font-size:1.1rem}
+.sheet .src{font-size:.78rem;color:var(--muted);margin-bottom:12px}
+.sheet label{display:block;font-size:.8rem;font-weight:700;margin:12px 0 6px;color:#334155}
+.sheet input[type=text],.sheet textarea{width:100%;font-size:.92rem;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-family:inherit}
+.sheet textarea{min-height:160px;resize:vertical;line-height:1.5}
+.strip{display:flex;gap:8px;overflow-x:auto;margin-top:6px}
+.strip img{height:84px;border-radius:8px;border:1px solid var(--line)}
+.sheet .row{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+.sheet .row button{font-size:.9rem;font-weight:700;border-radius:10px;padding:10px 18px;cursor:pointer;border:1px solid var(--line);background:#fff}
+.sheet .row .primary{background:var(--accent);color:#fff;border:none}
+.toast{position:fixed;top:76px;left:50%;transform:translateX(-50%);z-index:50;background:#101828;color:#fff;padding:12px 20px;border-radius:12px;font-size:.88rem;display:none;max-width:92vw;box-shadow:0 8px 30px rgba(0,0,0,.3)}
+.toast.show{display:block}
+.toast.err{background:#7f1d1d}
+.empty{background:var(--card);border:1px dashed var(--line);border-radius:14px;padding:48px 24px;text-align:center;color:var(--muted)}
+.empty b{color:var(--ink)}
+@media (max-width:560px){
+  .grid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+  .card .excerpt{-webkit-line-clamp:3;font-size:.8rem}
+  header.top h1{font-size:1rem}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>✂️ Editor de curaduría</h1>
+  <span class="sub">NEXO · selecciona, retoca y envía a Legado Vivo en lote</span>
+  <span class="bridge" id="bridgeChip">verificando puente…</span>
+</header>
+<main>
+  <div class="filters">
+    <select id="fSource" aria-label="Fuente">
+      <option value="">Todas las fuentes</option>
+      <option value="facebook">Facebook</option>
+      <option value="instagram">Instagram</option>
+      <option value="whatsapp">WhatsApp</option>
+    </select>
+    <select id="fStatus" aria-label="Estado">
+      <option value="">Todos los estados</option>
+      <option value="listo">Listos</option>
+      <option value="entregado_legado">Entregados a Legado</option>
+      <option value="entregado_taller">Entregados a Taller</option>
+    </select>
+    <input type="search" id="fText" placeholder="Buscar en el texto…">
+    <button id="fReload" class="editbtn" style="font-size:.85rem">↻ Recargar</button>
+  </div>
+  <div class="count" id="count"></div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" style="display:none">
+    <b>No hay paquetes para mostrar.</b><br>
+    Extrae contenido primero (Facebook, Instagram o importa un export de WhatsApp) y vuelve aquí a curarlo.
+  </div>
+</main>
+<div class="bar">
+  <span class="n" id="selCount">0 seleccionados</span>
+  <button class="btn-send" id="btnSend" disabled>Enviar a Legado Vivo</button>
+  <button class="btn-clear" id="btnClear">Limpiar</button>
+  <span class="progress" id="progress"></span>
+</div>
+<div class="modal" id="modal">
+  <div class="sheet">
+    <h2>Retocar paquete</h2>
+    <div class="src" id="mSrc"></div>
+    <div class="strip" id="mStrip"></div>
+    <label for="mTitle">Título (así llegará a Legado Vivo)</label>
+    <input type="text" id="mTitle" maxlength="80">
+    <label for="mText">Texto / relato</label>
+    <textarea id="mText" maxlength="20000"></textarea>
+    <div class="row">
+      <button id="mCancel">Cancelar</button>
+      <button class="primary" id="mSave">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const grid = $('grid'), emptyEl = $('empty'), countEl = $('count');
+const selCount = $('selCount'), btnSend = $('btnSend'), progressEl = $('progress');
+let packages = [];
+let selected = new Set();
+let edits = {}; // package_id -> {title, text}
+let editingId = null;
+
+const esc = (s) => String(s == null ? '' : s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+function defaultTitle(p){
+  const s = p.metadata && p.metadata.summary;
+  if (s) return s.slice(0,80);
+  const line = (p.text || '').split('\n')[0] || 'Contenido de NEXO';
+  return line.slice(0,80);
+}
+function fmtDate(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d) ? String(iso).slice(0,10)
+    : d.toLocaleDateString('es-PE',{day:'numeric',month:'short',year:'numeric'});
+}
+function srcBadge(src){
+  const m = {facebook:['fb','Facebook'],instagram:['ig','Instagram'],whatsapp:['wa','WhatsApp']}[src];
+  return m ? `<span class="badge ${m[0]}">${m[1]}</span>` : `<span class="badge">${esc(src||'?')}</span>`;
+}
+function stBadge(st){
+  const label = {listo:'Listo',entregado_legado:'En Legado',entregado_taller:'En Taller'}[st] || st || 'listo';
+  return `<span class="badge st-${esc(st||'listo')}">${esc(label)}</span>`;
+}
+function thumb(p){
+  const m = (p.media||[]).find(x=>x.kind==='image'&&x.url) || (p.media||[])[0];
+  if(!m||!m.url) return `<div class="nomedia">🖼️</div>`;
+  const play = m.kind==='video' ? `<span class="play">▶</span>` : '';
+  return `<img loading="lazy" src="${esc(m.url)}" alt="" onerror="this.parentNode.innerHTML='<div class=&quot;nomedia&quot;>🖼️</div>'">${play}`;
+}
+function cardEdited(id){ return edits[id] ? ' · ✏️ retocado' : ''; }
+
+function render(){
+  const q = $('fText').value.trim().toLowerCase();
+  const list = packages.filter(p=>{
+    if(q && !(p.text||'').toLowerCase().includes(q)) return false;
+    return true;
+  });
+  countEl.textContent = `${list.length} paquete${list.length===1?'':'s'}` +
+    (selected.size ? ` · ${selected.size} seleccionado${selected.size===1?'':'s'}` : '');
+  emptyEl.style.display = list.length ? 'none' : 'block';
+  grid.innerHTML = list.map(p=>{
+    const id = esc(p.package_id);
+    const isSel = selected.has(p.package_id);
+    const res = p._res;
+    return `<article class="card${isSel?' selected':''}" data-id="${id}">
+      <input type="checkbox"${isSel?' checked':''} aria-label="Seleccionar">
+      <div class="thumb">${thumb(p)}</div>
+      <div class="badges">${srcBadge(p.source)}${stBadge(p.status)}</div>
+      <div class="body">
+        <div class="date">${esc(fmtDate(p.created_at))}${p.author&&p.author.name?' · '+esc(p.author.name):''}</div>
+        <div class="excerpt">${esc((p.text||'(sin texto)').slice(0,220))}</div>
+        <div class="meta"><span>📎 ${(p.media||[]).length}${cardEdited(p.package_id)}</span>
+        <button class="editbtn" data-edit="${id}">✏️ Retocar</button></div>
+        ${res ? `<div class="result ${res.ok?'ok':'fail'}">${res.ok?'✓ Enviado a Legado':'✗ '+esc(res.error||'falló')}</div>` : ''}
+      </div>
+    </article>`;
+  }).join('');
+  selCount.textContent = `${selected.size} seleccionado${selected.size===1?'':'s'}`;
+  btnSend.disabled = selected.size === 0;
+  btnSend.textContent = selected.size ? `Enviar ${selected.size} a Legado Vivo` : 'Enviar a Legado Vivo';
+}
+
+async function load(){
+  const src = $('fSource').value, st = $('fStatus').value;
+  const qs = new URLSearchParams({limit:'200'});
+  if(src) qs.set('source',src);
+  if(st) qs.set('status',st);
+  try{
+    const r = await fetch('/api/packages?'+qs);
+    const j = await r.json();
+    packages = (j.paquetes||[]).map(p=>({...p,_res:null}));
+    selected = new Set([...selected].filter(id=>packages.some(p=>p.package_id===id)));
+    render();
+  }catch(e){ toast('No se pudo cargar la lista de paquetes.', true); }
+}
+
+function toast(msg, isErr){
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  clearTimeout(t._h);
+  t._h = setTimeout(()=>{ t.className='toast'; }, 4200);
+}
+
+grid.addEventListener('click', (ev)=>{
+  const editBtn = ev.target.closest('[data-edit]');
+  if(editBtn){ openEdit(editBtn.dataset.edit); return; }
+  const card = ev.target.closest('.card');
+  if(!card) return;
+  const id = card.dataset.id;
+  if(ev.target.type==='checkbox'){ /* manejado abajo */ }
+  else { // clic en la tarjeta alterna selección
+    selected.has(id) ? selected.delete(id) : selected.add(id);
+    render();
+  }
+});
+grid.addEventListener('change', (ev)=>{
+  if(ev.target.type!=='checkbox') return;
+  const card = ev.target.closest('.card');
+  const id = card.dataset.id;
+  ev.target.checked ? selected.add(id) : selected.delete(id);
+  render();
+});
+
+function openEdit(id){
+  const p = packages.find(x=>x.package_id===id);
+  if(!p) return;
+  editingId = id;
+  const e = edits[id] || {};
+  $('mTitle').value = e.title != null ? e.title : defaultTitle(p);
+  $('mText').value = e.text != null ? e.text : (p.text || '');
+  $('mSrc').textContent = `${p.source||''} · ${fmtDate(p.created_at)}${p.metadata&&p.metadata.permalink?' · '+p.metadata.permalink:''}`;
+  $('mStrip').innerHTML = (p.media||[]).slice(0,8).map(m=>
+    m.url ? `<img loading="lazy" src="${esc(m.url)}" alt="">` : '').join('');
+  $('modal').classList.add('open');
+}
+$('mCancel').onclick = ()=>{ $('modal').classList.remove('open'); editingId=null; };
+$('modal').addEventListener('click',(ev)=>{ if(ev.target===$('modal')){ $('modal').classList.remove('open'); editingId=null; } });
+$('mSave').onclick = ()=>{
+  if(!editingId) return;
+  edits[editingId] = { title: $('mTitle').value.trim(), text: $('mText').value };
+  $('modal').classList.remove('open');
+  editingId = null;
+  render();
+  toast('Cambios guardados: se aplicarán al enviar el lote.');
+};
+
+$('btnClear').onclick = ()=>{ selected.clear(); render(); };
+$('fReload').onclick = load;
+$('fSource').onchange = load;
+$('fStatus').onchange = load;
+$('fText').oninput = render;
+
+btnSend.onclick = async ()=>{
+  const ids = [...selected];
+  if(!ids.length) return;
+  if(!confirm(`Enviar ${ids.length} paquete${ids.length===1?'':'s'} a Legado Vivo como borradores?`)) return;
+  btnSend.disabled = true;
+  progressEl.textContent = 'Enviando…';
+  try{
+    const r = await fetch('/api/packages/deliver-batch',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ids, app:'legado-vivo', edits})
+    });
+    const j = await r.json();
+    let ok = 0;
+    (j.results||[]).forEach(res=>{
+      const p = packages.find(x=>x.package_id===res.id);
+      if(p){ p._res = res; if(res.ok){ ok++; p.status='entregado_legado'; } }
+    });
+    selected.clear(); edits = {};
+    render();
+    progressEl.textContent = '';
+    toast(ok === ids.length
+      ? `✓ ${ok} paquete${ok===1?'':'s'} enviado${ok===1?'':'s'} a Legado Vivo.`
+      : `Se enviaron ${ok} de ${ids.length}. Revisa los marcados con ✗.`, ok !== ids.length);
+  }catch(e){
+    progressEl.textContent = '';
+    toast('Falló el envío del lote. Revisa tu conexión e inténtalo de nuevo.', true);
+  }
+  btnSend.disabled = selected.size === 0;
+};
+
+(async ()=>{
+  try{
+    const r = await fetch('/');
+    const j = await r.json();
+    const chip = $('bridgeChip');
+    if(j.adaptador_legado_vivo){ chip.textContent = '✓ puente a Legado Vivo activo'; chip.classList.add('on'); }
+    else { chip.textContent = '⚠ puente a Legado sin configurar'; chip.classList.add('off'); }
+  }catch(e){ /* sin chip */ }
+  load();
+})();
+</script>
+</body>
+</html>
